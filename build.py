@@ -12,6 +12,7 @@ screenshots, icon and tags) and writes DIR (default `dist/`, gitignored) from
                  entry's "After:" part, with its before/after screenshots
 - changelog.html CHANGELOG.md in full
 - games.html     the public relay's games, live (fetched by the page from RELAY_GAMES)
+- downloads.html every platform's zip of the last release (sizes and date from gh)
 - faq.html       the FAQ, from src/faq.html (a template, as the landing page)
 
 with the screenshots it shows (docs/readme/, docs/changelog/) and the icon copied beside
@@ -184,7 +185,8 @@ def render(blks, pair=None):
     placed = [False]
 
     def shots(figs):
-        figs = [(a, s) for a, s in figs if s not in skip]
+        figs = [(a, s) for a, s in figs
+                if s not in skip and os.path.basename(s) not in HIDDEN_PICTURES]
         out = ""
         if skip and not placed[0]:
             out += compare(pair)
@@ -320,8 +322,17 @@ def plain_title(entry):
     return re.sub(r"\s*\(`[^`]*`[^)]*\)", "", entry["title"]).strip()
 
 
+# Screenshots the site does not show: frames caught halfway through an animation, which
+# read as noise out of the game (zoomswitch's way in and out).
+HIDDEN_PICTURES = {"zoomswitch-in.png", "zoomswitch-out.png"}
+
+
 def images(entry):
-    """The entry's screenshots: [(caption, src)]."""
+    """The entry's screenshots: [(caption, src)], less HIDDEN_PICTURES."""
+    return [p for p in _images(entry) if os.path.basename(p[1]) not in HIDDEN_PICTURES]
+
+
+def _images(entry):
     out = []
     for kind, val in blocks(entry["lines"]):
         if kind == "img":
@@ -342,7 +353,7 @@ def images(entry):
 
 def page(title, active, body, version, extra_head=""):
     nav = "".join('<a href="%s"%s>%s</a>' % (href, ' class="on"' if key == active else "", label)
-                  for key, href, label in [("home", "index.html", "Home"),
+                  for key, href, label in [("downloads", "downloads.html", "Downloads"),
                                            ("new", "whatsnew.html", "What's new"),
                                            ("log", "changelog.html", "Changelog"),
                                            ("games", "games.html", "Games"),
@@ -481,6 +492,67 @@ def changelog(intro, days, version, used):
     return page("Changelog - OpenDeadlock", "log", body, version)
 
 
+# The release's zips: (platform, its zip's tail, what it runs on). From the release notes
+# release.py writes (OpenDeadlock's tools/release.py).
+PLATFORMS = [
+    ("Windows", "windows-x64", "64-bit Windows"),
+    ("Windows", "windows-x86", "32-bit build: 32-bit or 64-bit Windows"),
+    ("macOS", "macos-arm64", "macOS 26 or later, Apple silicon. Not notarized: once, in its folder, "
+                             "<code>xattr -dr com.apple.quarantine .</code>"),
+    ("Linux", "linux-x86_64", "x86_64, glibc 2.28 or later (2018 on); SDL3 is in the zip. No folder "
+                              "dialog: <code>gamedir=</code> in <code>opendeadlock.ini</code>"),
+    ("Linux", "linux-arm64", "arm64, glibc 2.28 or later; SDL3 is in the zip. No folder dialog: "
+                             "<code>gamedir=</code> in <code>opendeadlock.ini</code>"),
+]
+
+
+def release_info(version):
+    """The release's date and its files' sizes, from GitHub (gh, signed in: the repository
+    is private); ({}, None) when gh cannot say, and the page goes without them."""
+    try:
+        out = subprocess.check_output(
+            ["gh", "release", "view", "v" + version, "-R", REPO_URL.split("github.com/")[1],
+             "--json", "publishedAt,assets"], cwd=ROOT, text=True, stderr=subprocess.DEVNULL)
+        data = json.loads(out)
+        return {a["name"]: a["size"] for a in data["assets"]}, data["publishedAt"][:10]
+    except (subprocess.CalledProcessError, OSError, ValueError, KeyError):
+        return {}, None
+
+
+def downloads(version):
+    """Every platform's zip of the last release, with what it needs, and the checksums."""
+    sizes, date = release_info(version)
+    base = "%s/releases/download/v%s/" % (REPO_URL, version)
+    rows = []
+    for name, tail, needs in PLATFORMS:
+        zip_name = "opendeadlock-%s-%s.zip" % (version, tail)
+        size = sizes.get(zip_name)
+        rows.append(
+            '<div class="dl-row"><div class="dl-what"><h3>%s <span>%s</span></h3><p>%s</p></div>'
+            '<a class="btn primary" href="%s%s">Download%s</a></div>'
+            % (name, tail.split("-", 1)[1], needs, base, zip_name,
+               " <small>%.1f MB</small>" % (size / 1e6) if size else ""))
+    rows.append('<div class="dl-row off"><div class="dl-what"><h3>Android <span>tablets</span></h3>'
+                '<p>Builds and runs on the emulator; not in the releases yet.</p></div>'
+                '<span class="btn" aria-disabled="true">Soon</span></div>')
+    sums = ('<a href="%sSHA256SUMS">SHA256SUMS</a>' % base) if (not sizes or "SHA256SUMS" in sizes) else ""
+    body = """<main class="wrap doc downloads">
+<h1>Downloads</h1>
+<p class="lead">OpenDeadlock v%(v)s%(date)s. Unpack the zip anywhere and start
+<code>opendeadlock</code>; the first start asks for your Deadlock 2 folder or GOG's installer.</p>
+<div class="dl-list">%(rows)s</div>
+<p class="dim small">%(sums)s%(sep)s<a href="%(rel)s">Release notes</a> &middot;
+<a href="%(repo)s/releases">All releases</a> &middot; <a href="whatsnew.html">What's new</a> &middot;
+<a href="faq.html">FAQ</a></p>
+<p class="note">You need your own copy of Deadlock 2, installed from the CD, Steam or GOG, or GOG's
+installer: no game data is in the download. Network games need the same version on every
+machine.</p>
+</main>""" % {"v": version, "date": ", released %s" % date if date else "", "rows": "".join(rows),
+              "sums": sums, "sep": " &middot; " if sums else "",
+              "rel": "%s/releases/tag/v%s" % (REPO_URL, version), "repo": REPO_URL}
+    return page("Downloads - OpenDeadlock", "downloads", body, version)
+
+
 def games(version):
     """The public games, live from the relay: the page fetches them every 30 s. A
     player's text (a game's name) goes in as text, never as HTML."""
@@ -583,11 +655,13 @@ def main():
     entries = [e for _, _, es in days for e in es]
     counts = {k: sum(1 for e in entries if e["key"] == k) for k, _ in KINDS}
 
+    shutil.rmtree(os.path.join(args.out, "img"), ignore_errors=True)  # only the pictures shown
     os.makedirs(os.path.join(args.out, "img"), exist_ok=True)
     used = set()
     pages = {"whatsnew.html": whatsnew(days, version, used),
              "changelog.html": changelog(intro, days, version, used),
-             "games.html": games(version)}
+             "games.html": games(version),
+             "downloads.html": downloads(version)}
 
     fields = {"VERSION": version, "REPO": REPO_URL,
               "RELEASE": "%s/releases/tag/v%s" % (REPO_URL, version),
