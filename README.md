@@ -1,0 +1,25 @@
+# opendeadlock-site
+
+The web page of [OpenDeadlock](https://github.com/galius-iv/opendeadlock): a landing
+page, What's new (every change in two or three sentences, with its before/after
+screenshots), the full changelog, and Games: the public relay's games, live (the page
+fetches the relay's `/games`, galius-iv/relay, every 30 s).
+
+    python3 build.py                      # reads ../opendeadlock, writes dist/
+    python3 -m http.server -d dist        # look at it
+
+`python3 build.py --publish` builds and then pushes `dist/` to this repository's `gh-pages`
+branch, which GitHub Pages serves at https://galius-iv.github.io (after a release, or a
+CHANGELOG entry worth showing). `--repo DIR` names another OpenDeadlock checkout; `--version X.Y.Z` the release the
+download button names (default: the checkout's last tag). Plain Python 3, nothing to
+install.
+
+- `src/index.html`: the landing page's body, a template (`{{VERSION}}`, `{{RELEASE}}`,
+  `{{REPO}}`, `{{BUGS}}`, `{{QOL}}`)
+- `src/style.css`: the colours, type and panels of the modern UI's design system
+  (galius-iv/modern-ui, `ui.css`)
+- `build.py`: the pages, from the checkout's `CHANGELOG.md`; the screenshots it shows
+  (`docs/readme/`, `docs/changelog/`) and the icon are copied into `dist/img/`
+
+What's new leaves out the port's own bugs fixed and the changes nobody notices in play
+(unreachable code, a hostile network peer ...); the full changelog has every entry.

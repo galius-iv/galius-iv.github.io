@@ -1,0 +1,653 @@
+#!/usr/bin/env python3
+"""OpenDeadlock's web page: a landing page, What's new and the full changelog.
+
+    python3 build.py [--repo DIR] [--out DIR] [--version X.Y.Z]
+
+Reads an OpenDeadlock checkout (--repo, default ../opendeadlock: its CHANGELOG.md,
+screenshots, icon and tags) and writes DIR (default `dist/`, gitignored) from
+`src/index.html` (the landing page, a template), `src/style.css` and CHANGELOG.md:
+
+- index.html     the landing page; the download button names the last tag (`git describe`)
+- whatsnew.html  every change a player notices, two or three sentences each, from the
+                 entry's "After:" part, with its before/after screenshots
+- changelog.html CHANGELOG.md in full
+- games.html     the public relay's games, live (fetched by the page from RELAY_GAMES)
+- faq.html       the FAQ, from src/faq.html (a template, as the landing page)
+
+with the screenshots it shows (docs/readme/, docs/changelog/) and the icon copied beside
+them, so the folder can be served as it is (`python3 -m http.server -d dist`).
+Plain Python, nothing to install; the colours and type are the modern UI's
+(../modern-ui/ui.css).
+"""
+import argparse
+import html
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.join(os.path.dirname(HERE), "opendeadlock")  # the checkout; --repo sets it
+REPO_URL = "https://github.com/galius-iv/opendeadlock"
+# The public relay (galius-iv/relay): its /games, JSON open to any page (CORS *), counts the
+# games and names those their hosts listed (net_public=1); games.html fetches it.
+RELAY_GAMES = "https://opendeadlock-relay.fly.dev/games"
+
+KINDS = [  # (key, label), in the filter's order
+    ("feature", "Features"),
+    ("qol", "QoL"),
+    ("game", "Bug fixes"),
+    ("port", "Port fixes"),
+]
+
+# The settings and platform changes that are features (a new way to play or a new
+# platform); the rest of them are quality of life. By title, chosen by hand.
+FEATURE = re.compile(r"modern UI|Android|Native Linux|Hotseat: several|\brelay\b|"
+                     r"HD terrain|3D world map|zoom|\bfog\b|Realm borders|Health bars|"
+                     r"A console|Keys can be remapped|IPv6|another language|Sharp on Retina|"
+                     r"Alt\+Enter")
+
+
+# ---------------------------------------------------------------- markdown
+
+def inline(text):
+    """CHANGELOG.md's inline markdown: code, bold, italics, links."""
+    codes = []
+
+    def keep(m):
+        codes.append("<code>%s</code>" % html.escape(m.group(1)))
+        return "\0%d\0" % (len(codes) - 1)
+
+    text = re.sub(r"`([^`]+)`", keep, text)
+    text = html.escape(text, quote=False)
+    text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
+    text = re.sub(r"(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])", r"<em>\1</em>", text)
+
+    def link(m):
+        label, url = m.group(1), m.group(2)
+        if not re.match(r"[a-z]+:", url) and not url.startswith("#"):
+            url = "%s/blob/main/%s" % (REPO_URL, url)
+        return '<a href="%s">%s</a>' % (html.escape(url), label)
+
+    text = re.sub(r"(?<!!)\[([^\]]+)\]\(([^)\s]+)\)", link, text)
+    return re.sub(r"\0(\d+)\0", lambda m: codes[int(m.group(1))], text)
+
+
+IMAGE = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)\)")
+
+
+def figure(alt, src):
+    src = img_path(src)
+    return ('<figure><a href="%s"><img src="%s" alt="%s" loading="lazy"></a>'
+            '<figcaption>%s</figcaption></figure>'
+            % (src, src, html.escape(alt), inline(alt)))
+
+
+def img_path(src):
+    return "img/" + os.path.basename(src)
+
+
+def png_size(src):
+    """A PNG's width and height, from its header; None if it is not found."""
+    for p in (src, os.path.join("docs", "changelog", os.path.basename(src))):
+        path = os.path.join(ROOT, p)
+        if os.path.isfile(path):
+            with open(path, "rb") as f:
+                head = f.read(24)
+            if head[:8] == b"\x89PNG\r\n\x1a\n":
+                return int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big")
+    return None
+
+
+def before_after(pics):
+    """The entry's before/after pair for the slider, [(caption, src)] -> (before, after) or
+    None: a `X-before.png` with `X-after.png`, or else with the first other `X-*.png` (the
+    zoomed views: `colonyzoom-in`); both of one size, or the slider would not line up."""
+    for b in [p for p in pics if os.path.basename(p[1]).endswith("-before.png")]:
+        prefix = os.path.basename(b[1])[:-len("before.png")]
+        others = [p for p in pics if p is not b and os.path.basename(p[1]).startswith(prefix)]
+        others.sort(key=lambda p: not os.path.basename(p[1]).endswith("-after.png"))
+        for a in others:
+            size = png_size(b[1])
+            if size and size == png_size(a[1]):
+                return b, a
+    return None
+
+
+def compare(pair, small=False):
+    """A before/after slider (compare.js): the after picture, the before over it clipped
+    at the handle; a range input across it moves the handle, by mouse, touch or keys."""
+    (bcap, bsrc), (acap, asrc) = pair
+    w, h = png_size(bsrc)
+
+    def label(cap, default):
+        return html.escape(cap if 0 < len(cap) <= 40 else default)
+
+    return ('<div class="compare%s" style="aspect-ratio:%d/%d">'
+            '<img src="%s" alt="%s" loading="lazy">'
+            '<div class="cmp-before"><img src="%s" alt="%s" loading="lazy"></div>'
+            '<i class="cmp-handle"></i>'
+            '<span class="cmp-label l">%s</span><span class="cmp-label r">%s</span>'
+            '<input type="range" min="0" max="100" value="50" aria-label="Before and after">'
+            '</div>' % (" small" if small else "", w, h, img_path(asrc), html.escape(acap),
+                        img_path(bsrc), html.escape(bcap),
+                        label(bcap, "Before"), label(acap, "After")))
+
+
+def blocks(lines):
+    """Split lines into blocks: ('p', text) ('ul', [items]) ('table', rows) ('img', [(alt, src)])."""
+    out, i = [], 0
+    while i < len(lines):
+        line = lines[i]
+        if not line.strip():
+            i += 1
+            continue
+        if line.startswith("|"):
+            rows = []
+            while i < len(lines) and lines[i].startswith("|"):
+                cells = [c.strip() for c in lines[i].strip().strip("|").split("|")]
+                if not all(re.fullmatch(r":?-+:?", c) for c in cells):
+                    rows.append(cells)
+                i += 1
+            out.append(("table", rows))
+            continue
+        if re.match(r"[-*] ", line):
+            items = []
+            while i < len(lines) and lines[i].strip():
+                if re.match(r"[-*] ", lines[i]):
+                    items.append(lines[i][2:].strip())
+                else:
+                    items[-1] += " " + lines[i].strip()
+                i += 1
+            out.append(("ul", items))
+            continue
+        para = []
+        while (i < len(lines) and lines[i].strip() and not lines[i].startswith("|")
+               and not (para and re.match(r"[-*] ", lines[i]))):
+            para.append(lines[i].strip())
+            i += 1
+        text = " ".join(para)
+        imgs = IMAGE.findall(text)
+        if imgs and not IMAGE.sub("", text).strip():
+            out.append(("img", imgs))
+        else:
+            out.append(("p", text))
+    return out
+
+
+def render(blks, pair=None):
+    """Blocks to HTML; a before/after `pair` becomes a slider where its pictures were."""
+    parts = []
+    skip = {pair[0][1], pair[1][1]} if pair else set()
+    placed = [False]
+
+    def shots(figs):
+        figs = [(a, s) for a, s in figs if s not in skip]
+        out = ""
+        if skip and not placed[0]:
+            out += compare(pair)
+            placed[0] = True
+        if figs:
+            out += '<div class="shots">%s</div>' % "".join(figure(a, s) for a, s in figs)
+        return out
+
+    for kind, val in blks:
+        if kind == "p":
+            parts.append("<p>%s</p>" % inline(val))
+        elif kind == "ul":
+            parts.append("<ul>%s</ul>" % "".join("<li>%s</li>" % inline(x) for x in val))
+        elif kind == "img":
+            parts.append(shots(val))
+        elif kind == "table":
+            if any(IMAGE.search(c) for r in val for c in r):
+                # a table of screenshots: its first row captions the pictures below
+                caps, pics = val[0], [IMAGE.search(c) for r in val[1:] for c in r]
+                parts.append(shots([(caps[k] if k < len(caps) else m.group(1), m.group(2))
+                                    for k, m in enumerate(p for p in pics if p)]))
+            else:
+                head, *body = val
+                parts.append("<table><thead><tr>%s</tr></thead><tbody>%s</tbody></table>" % (
+                    "".join("<th>%s</th>" % inline(c) for c in head),
+                    "".join("<tr>%s</tr>" % "".join("<td>%s</td>" % inline(c) for c in r)
+                            for r in body)))
+    return "\n".join(parts)
+
+
+# ---------------------------------------------------------------- the changelog
+
+def parse_changelog():
+    """[(date, [entry])], each entry a dict: title, kind, note, key, slug, lines."""
+    text = open(os.path.join(ROOT, "CHANGELOG.md"), encoding="utf-8").read()
+    intro, *days = re.split(r"^## ", text, flags=re.M)
+    out, slugs = [], set()
+    for day in days:
+        head, _, rest = day.partition("\n")
+        chunks = re.split(r"^### ", rest, flags=re.M)
+        lead, entries = chunks[0], []
+        for chunk in chunks[1:]:
+            title, _, body = chunk.partition("\n")
+            kind = ""
+            if " -- " in title:
+                title, kind = title.rsplit(" -- ", 1)
+            slug = base = re.sub(r"[^a-z0-9]+", "-", re.sub(r"`", "", title.lower())).strip("-")[:60]
+            n = 2
+            while slug in slugs:
+                slug, n = "%s-%d" % (base, n), n + 1
+            slugs.add(slug)
+            key = kind_key(kind)
+            if key in ("setting", "platform"):
+                key = "feature" if FEATURE.search(title) else "qol"
+            entries.append({"title": title.strip(), "kind": kind.strip(),
+                            "key": key, "slug": slug,
+                            "lines": body.rstrip().split("\n")})
+        out.append((head.strip(), lead.strip(), entries))
+    return intro, out
+
+
+def kind_key(kind):
+    first = kind.split(",")[0].split("(")[0].strip().lower()
+    if first.startswith("port") or first == "documentation":
+        return "port"
+    if first.startswith("game"):
+        return "game"
+    if first.startswith("setting"):
+        return "setting"
+    return "platform"
+
+
+def noticeable(entry):
+    """False for the changes What's new leaves out: the port's own bugs fixed, and those
+    nobody sees in play (unreachable code, a hostile peer ...)."""
+    if entry["key"] == "port":
+        return False
+    note = entry["kind"].lower()
+    return not re.search(r"\bno (visible |audible )?effect|unreachable|none in play|bad peer|"
+                         r"no visible|no audible|normal play unchanged|documentation", note)
+
+
+SENTENCE = re.compile(r"(?<=[.!?])[\")]?\s+(?=[A-Z\"(`])")
+
+
+def summary(entry):
+    """Two or three sentences: what the player gets, from the entry's "After:" part."""
+    prose = []
+    for kind, val in blocks(entry["lines"]):
+        if kind != "p":
+            continue
+        if re.match(r"(Checked|How|Not yet|Played|Reproduced)\b", val):
+            break
+        prose.append(val)
+    text = " ".join(prose)
+    text = re.sub(r"^((#\d+|`[0-9a-f]{7,12}`)(, (#\d+|`[0-9a-f]{7,12}`))*)[^.]*?\.\s+", "", text)
+    text = re.sub(r"^#\d+, (`\w+`)? ?\([^)]*\)\.\s+", "", text)
+    m = re.search(r"\bAfter(, ([^:]+))?:\s*", text)
+    if m:
+        rest = text[m.end():]
+        text = (m.group(2)[0].upper() + m.group(2)[1:] + ": " + rest) if m.group(2) else rest
+    text = re.split(r"\s+Checked( by)?[: ]", text)[0]
+    sentences = [s.strip() for s in SENTENCE.split(text) if s.strip()]
+    keep, size = [], 0
+    for s in sentences:
+        if keep and (len(keep) == 3 or size + len(s) > 300):
+            break
+        keep.append(s)
+        size += len(s)
+    text = " ".join(keep)
+    if text:
+        text = text[0].upper() + text[1:]
+    return text
+
+
+def short(entry, limit=150):
+    """One short sentence for What's new: the summary's first, its asides in brackets
+    dropped, cut at a clause (or a word) when it is still long."""
+    text = summary(entry)
+    text = re.sub(r"\s*\([^()]*\)", "", text)
+    text = (SENTENCE.split(text) or [""])[0].strip()
+    if len(text) > limit:
+        cut = max(text.rfind(c, 0, limit) for c in ("; ", ": ", ", ", " -- "))
+        if cut < limit // 2:
+            cut = text.rfind(" ", 0, limit)
+        text = text[:cut].rstrip(" ,;:-")
+    text = text.rstrip(".")
+    return text + "." if text else ""
+
+
+def plain_title(entry):
+    """The title without its setting's name in brackets: for the sidebar."""
+    return re.sub(r"\s*\(`[^`]*`[^)]*\)", "", entry["title"]).strip()
+
+
+def images(entry):
+    """The entry's screenshots: [(caption, src)]."""
+    out = []
+    for kind, val in blocks(entry["lines"]):
+        if kind == "img":
+            out += val
+        elif kind == "table":
+            caps = val[0]
+            pics = [IMAGE.search(c) for r in val[1:] for c in r]
+            pics = [p for p in pics if p]
+            if pics:
+                out += [(caps[k] if k < len(caps) else p.group(1), p.group(2))
+                        for k, p in enumerate(pics)]
+        elif kind == "p":
+            out += IMAGE.findall(val)
+    return out
+
+
+# ---------------------------------------------------------------- pages
+
+def page(title, active, body, version, extra_head=""):
+    nav = "".join('<a href="%s"%s>%s</a>' % (href, ' class="on"' if key == active else "", label)
+                  for key, href, label in [("home", "index.html", "Home"),
+                                           ("new", "whatsnew.html", "What's new"),
+                                           ("log", "changelog.html", "Changelog"),
+                                           ("games", "games.html", "Games"),
+                                           ("faq", "faq.html", "FAQ")])
+    return """<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>%(title)s</title>
+<link rel="icon" href="img/opendeadlock.png">
+<link rel="stylesheet" href="style.css">%(extra)s
+</head><body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="index.html"><img src="img/opendeadlock.png" alt="">OpenDeadlock</a>
+  <button class="menu" aria-label="Menu" aria-expanded="false" aria-controls="nav"><i></i><i></i><i></i></button>
+  <nav id="nav">%(nav)s<a class="ext" href="%(repo)s">GitHub<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3H3v10h10v-3M9 2h5v5M14 2 7 9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></a></nav>
+</div></header>
+<script>
+// the phone's menu: the button opens the top bar's links below it; a link, Esc or a click
+// outside closes them
+(() => {
+  const top = document.querySelector('.top'), btn = top.querySelector('.menu');
+  const set = (open) => { top.classList.toggle('open', open); btn.setAttribute('aria-expanded', open); };
+  btn.addEventListener('click', () => set(!top.classList.contains('open')));
+  top.querySelectorAll('nav a').forEach((a) => a.addEventListener('click', () => set(false)));
+  document.addEventListener('click', (e) => { if (!top.contains(e.target)) set(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') set(false); });
+})();
+</script>
+%(body)s
+<footer><div class="wrap">
+  <p><strong>Unofficial.</strong> Not affiliated with or endorsed by the rights holder of
+  Deadlock 2. No game data is included: you need your own copy of Deadlock 2 (<a
+  href="https://www.gog.com/game/deadlock_2_shrine_wars">GOG</a> or <a
+  href="https://store.steampowered.com/app/328450">Steam</a>).</p>
+  <p class="dim">OpenDeadlock v%(version)s &middot; <a href="%(repo)s">%(repo_short)s</a></p>
+</div></footer>
+<script src="lightbox.js"></script>
+<script src="compare.js"></script>
+</body></html>
+""" % {"title": title, "nav": nav, "body": body, "version": version, "repo": REPO_URL,
+       "repo_short": REPO_URL.split("//")[1], "extra": extra_head}
+
+
+def entry_title(entry):
+    return inline(entry["title"])
+
+
+def kind_chip(entry):
+    label = dict(KINDS)[entry["key"]]
+    return '<span class="chip k-%s">%s</span>' % (entry["key"], label)
+
+
+def whatsnew(days, version, used):
+    """Every change a player notices, newest first, one short sentence each, its kind
+    (feature, quality of life, bug fix) tagged; the sidebar filters them: All, or one kind."""
+    items = [(date, e) for date, _, entries in days for e in entries if noticeable(e)]
+    counts = {}
+    for _, e in items:
+        counts[e["key"]] = counts.get(e["key"], 0) + 1
+    side = ['<a class="filt k-all on" href="#all" data-k="all">All<span>%d</span></a>' % len(items)]
+    side += ['<a class="filt k-%s" href="#%s" data-k="%s">%s<span>%d</span></a>'
+             % (k, k, k, label, counts[k]) for k, label in KINDS if counts.get(k)]
+    cards = []
+    for date, e in items:
+        pics = images(e)
+        pair = before_after(pics)
+        used.update(src for _, src in pics)
+        pics = pics[:2]
+        shots = ""
+        if pair:
+            shots = compare(pair, small=True)
+        elif pics:
+            shots = '<div class="thumbs">%s</div>' % "".join(
+                '<a href="%s"><img src="%s" alt="%s" loading="lazy"></a>'
+                % (img_path(src), img_path(src), html.escape(alt)) for alt, src in pics)
+        cards.append(
+            '<article class="item" id="%s" data-k="%s"><div class="item-text"><h3>%s</h3>'
+            '<p>%s <a class="more" href="changelog.html#%s">More</a></p>'
+            '<span class="meta">%s<span class="date">%s</span></span></div>%s</article>'
+            % (e["slug"], e["key"], inline(plain_title(e)), inline(short(e)), e["slug"],
+               kind_chip(e), html.escape(date), shots))
+    body = """<main class="wrap doc with-toc">
+<aside class="toc side">%s</aside>
+<div>
+<h1>What's new</h1>
+<p class="lead">What plays differently from the original Deadlock 2, newest first. The
+<a href="changelog.html">full changelog</a> has the details.</p>
+<div class="items">%s</div>
+</div>
+</main>
+<script>
+// the sidebar's filters: All, or one kind alone; the address keeps it (#qol), and an
+// address naming a change (#its-slug) shows all
+const filts = document.querySelectorAll('.filt'), items = document.querySelectorAll('.item');
+function show(k) {
+  if (![...filts].some(f => f.dataset.k === k)) k = 'all';
+  filts.forEach(f => f.classList.toggle('on', f.dataset.k === k));
+  items.forEach(i => i.hidden = k !== 'all' && i.dataset.k !== k);
+}
+filts.forEach(f => f.addEventListener('click', e => {
+  e.preventDefault();
+  history.replaceState(null, '', f.dataset.k === 'all' ? location.pathname : '#' + f.dataset.k);
+  show(f.dataset.k);
+  window.scrollTo(0, 0);
+}));
+show(location.hash.slice(1));
+</script>""" % ("".join(side), "\n".join(cards))
+    return page("What's new - OpenDeadlock", "new", body, version)
+
+
+def changelog(intro, days, version, used):
+    toc, parts = [], []
+    for date, lead, entries in days:
+        anchor = "d-" + re.sub(r"[^a-z0-9]+", "-", date.lower()).strip("-")
+        toc.append('<a href="#%s">%s</a>' % (anchor, html.escape(date)))
+        sec = ['<h2 id="%s">%s</h2>' % (anchor, html.escape(date))]
+        if lead:
+            sec.append(render(blocks(lead.split("\n"))))
+        for e in entries:
+            used.update(src for _, src in images(e))
+            chip = '<span class="chip k-%s">%s</span>' % (e["key"], html.escape(e["kind"] or "change"))
+            sec.append('<article id="%s" class="entry"><div class="card-head">%s'
+                       '<h3><a href="#%s">%s</a></h3></div>%s</article>'
+                       % (e["slug"], chip, e["slug"], entry_title(e),
+                          render(blocks(e["lines"]), before_after(images(e)))))
+        parts.append("<section>%s</section>" % "\n".join(sec))
+    intro_body = re.sub(r"^# .*\n", "", intro).strip()
+    body = """<main class="wrap doc with-toc">
+<aside class="toc"><div class="section-title">Dates</div>%s</aside>
+<div>
+<h1>Changelog</h1>
+<div class="intro">%s</div>
+%s
+</div>
+</main>""" % ("".join(toc), render(blocks(intro_body.split("\n"))), "\n".join(parts))
+    return page("Changelog - OpenDeadlock", "log", body, version)
+
+
+def games(version):
+    """The public games, live from the relay: the page fetches them every 30 s. A
+    player's text (a game's name) goes in as text, never as HTML."""
+    body = """<main class="wrap doc">
+<h1>Games</h1>
+<p class="lead">Network games on the public relay right now. Hosts who list their game
+(<em>List my games publicly</em>, or <code>net_public=1</code>) show here with its code;
+the others are only counted.</p>
+<div class="stats" id="now">
+  <div class="stat"><b data-k="playing">&ndash;</b><span>games under way</span></div>
+  <div class="stat"><b data-k="lobbies">&ndash;</b><span>waiting for players</span></div>
+  <div class="stat"><b data-k="players">&ndash;</b><span>players online</span></div>
+</div>
+<div class="section-title">Waiting for players</div>
+<ul class="games" id="lobbies"><li class="empty">Loading&hellip;</li></ul>
+<p class="dim join">Join with the game's code: F2 on the Join a Game screen, or
+<code>--join CODE</code> on the command line. All players need the same version.</p>
+<div class="section-title">Under way</div>
+<ul class="games" id="playing"><li class="empty">Loading&hellip;</li></ul>
+<div class="section-title">Played</div>
+<div class="stats small" id="played">
+  <div class="stat"><b data-k="today">&ndash;</b><span>today</span></div>
+  <div class="stat"><b data-k="last7Days">&ndash;</b><span>last 7 days</span></div>
+  <div class="stat"><b data-k="total">&ndash;</b><span>in all</span></div>
+  <div class="stat"><b data-k="longestMinutes">&ndash;</b><span>longest, minutes</span></div>
+</div>
+<p class="dim status" id="status"></p>
+</main>
+<script>
+const URL_GAMES = %(url)s;
+const el = (tag, cls, text) => { const e = document.createElement(tag);
+  if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+function fill(box, obj) {
+  box.querySelectorAll('b[data-k]').forEach(b => b.textContent = obj[b.dataset.k] ?? 0);
+}
+function list(ul, items, row, empty) {
+  ul.replaceChildren(...(items.length ? items.map(row) : [el('li', 'empty', empty)]));
+}
+function game(name, meta) {
+  const li = el('li'); li.append(el('span', 'name', name || 'A game'), meta); return li;
+}
+async function load() {
+  const status = document.getElementById('status');
+  try {
+    const r = await fetch(URL_GAMES, { cache: 'no-store' });
+    if (!r.ok) throw new Error(r.status);
+    const g = await r.json();
+    fill(document.getElementById('now'), g.now);
+    fill(document.getElementById('played'), g.played);
+    list(document.getElementById('lobbies'), g.lobbies, l => {
+      const meta = el('span', 'meta');
+      meta.append(el('span', '', l.players + '/' + l.max + ' players \u00b7 v' + l.version + ' \u00b7 '));
+      const code = el('button', 'code', l.code);
+      code.title = 'Copy the code';
+      code.onclick = () => navigator.clipboard?.writeText(l.code).then(() => {
+        code.classList.add('copied'); setTimeout(() => code.classList.remove('copied'), 1200); });
+      meta.append(code);
+      return game(l.name, meta);
+    }, 'No listed game is waiting for players.');
+    list(document.getElementById('playing'), g.playing,
+      p => game(p.name, el('span', 'meta', p.players + ' players \u00b7 ' + p.minutes + ' min')),
+      'No listed game is under way.');
+    status.textContent = 'Updated ' + new Date().toLocaleTimeString() + ' \u00b7 every 30 s';
+  } catch (e) {
+    status.textContent = 'The relay could not be reached; trying again in 30 s.';
+  }
+}
+load();
+setInterval(() => { if (!document.hidden) load(); }, 30000);
+</script>""" % {"url": json.dumps(RELAY_GAMES)}
+    return page("Games - OpenDeadlock", "games", body, version)
+
+
+def last_tag():
+    try:
+        tag = subprocess.check_output(["git", "describe", "--tags", "--abbrev=0"], cwd=ROOT,
+                                      text=True, stderr=subprocess.DEVNULL).strip()
+        return tag.lstrip("v")
+    except (subprocess.CalledProcessError, OSError):
+        return None
+
+
+def main():
+    global ROOT
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--repo", default=ROOT, help="the OpenDeadlock checkout (default ../opendeadlock)")
+    ap.add_argument("--out", default=os.path.join(HERE, "dist"))
+    ap.add_argument("--version", help="the release the download button names (default: the last tag)")
+    ap.add_argument("--publish", action="store_true",
+                    help="then push the built pages to this repository's gh-pages branch (GitHub Pages)")
+    args = ap.parse_args()
+    ROOT = os.path.abspath(args.repo)
+    if not os.path.isfile(os.path.join(ROOT, "CHANGELOG.md")):
+        sys.exit("build.py: no CHANGELOG.md in %s; give --repo" % ROOT)
+    version = args.version or last_tag()
+    if not version:
+        sys.exit("build.py: no tag to name the release; give --version")
+
+    intro, days = parse_changelog()
+    entries = [e for _, _, es in days for e in es]
+    counts = {k: sum(1 for e in entries if e["key"] == k) for k, _ in KINDS}
+
+    os.makedirs(os.path.join(args.out, "img"), exist_ok=True)
+    used = set()
+    pages = {"whatsnew.html": whatsnew(days, version, used),
+             "changelog.html": changelog(intro, days, version, used),
+             "games.html": games(version)}
+
+    fields = {"VERSION": version, "REPO": REPO_URL,
+              "RELEASE": "%s/releases/tag/v%s" % (REPO_URL, version),
+              "DOWNLOAD": "%s/releases/download/v%s/opendeadlock-%s" % (REPO_URL, version, version),
+              "BUGS": str(counts["game"]),
+              "QOL": str(counts["feature"] + counts["qol"])}
+    for name, key, title in [("index.html", "home", "OpenDeadlock - Deadlock 2, rebuilt for today"),
+                             ("faq.html", "faq", "FAQ - OpenDeadlock")]:
+        text = open(os.path.join(HERE, "src", name), encoding="utf-8").read()
+        for k, v in fields.items():
+            text = text.replace("{{%s}}" % k, v)
+        pages[name] = page(title, key, re.search(r"<body>(.*)</body>", text, re.S).group(1).strip(),
+                           version)
+        used.update(re.findall(r'src="img/([^"]+)"', text))
+
+    for name, text in pages.items():
+        with open(os.path.join(args.out, name), "w", encoding="utf-8") as f:
+            f.write(text)
+    for name in ("style.css", "lightbox.js", "compare.js"):
+        shutil.copy(os.path.join(HERE, "src", name), args.out)
+    shutil.copy(os.path.join(ROOT, "assets", "icon", "out", "opendeadlock.png"),
+                os.path.join(args.out, "img"))
+    missing = []
+    for src in sorted(used):
+        found = [p for p in (src, os.path.join("docs", "changelog", os.path.basename(src)),
+                             os.path.join("docs", "readme", os.path.basename(src)))
+                 if os.path.isfile(os.path.join(ROOT, p))]
+        if found:
+            shutil.copy(os.path.join(ROOT, found[0]), os.path.join(args.out, "img"))
+        elif os.path.basename(src) != "opendeadlock.png":
+            missing.append(src)
+    for src in missing:
+        print("build.py: missing picture %s" % src, file=sys.stderr)
+    shown = sum(1 for e in entries if noticeable(e))
+    print("build.py: %s (v%s): %d changes, %d in What's new, %d pictures"
+          % (args.out, version, len(entries), shown, len(used)))
+    if missing:
+        return 1
+    if args.publish:
+        publish(args.out, version)
+    return 0
+
+
+def publish(out, version):
+    """The built folder as the gh-pages branch of this repository's origin, which GitHub
+    Pages serves: one commit, replacing the last (the history of the pages is not kept;
+    the sources' is, on main)."""
+    url = subprocess.check_output(["git", "remote", "get-url", "origin"], cwd=HERE, text=True).strip()
+    rev = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=HERE, text=True).strip()
+    open(os.path.join(out, ".nojekyll"), "w").close()  # served as they are, no Jekyll
+    git = lambda *a: subprocess.check_call(["git", *a], cwd=out)
+    shutil.rmtree(os.path.join(out, ".git"), ignore_errors=True)
+    git("init", "-q", "-b", "gh-pages")
+    git("add", "-A")
+    git("-c", "user.name=build.py", "-c", "user.email=build.py@localhost",
+        "commit", "-q", "-m", "The pages, built from %s for v%s" % (rev, version))
+    git("push", "-q", "--force", url, "gh-pages")
+    shutil.rmtree(os.path.join(out, ".git"))
+    print("build.py: published to %s (gh-pages)" % url)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

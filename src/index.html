@@ -1,0 +1,121 @@
+<!doctype html>
+<!-- The landing page's body, a template: build.py wraps it in the site's header and
+     footer and fills {{VERSION}}, {{RELEASE}}, {{DOWNLOAD}}, {{REPO}}, {{BUGS}} and
+     {{QOL}} (the last tag, its release, its zips' names less the platform, the counts
+     from CHANGELOG.md). -->
+<html><body>
+<section class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Deadlock II: Shrine Wars</p>
+    <h1>The 1998 strategy classic, <br>rebuilt for today's machines.</h1>
+    <p class="lead">OpenDeadlock is Deadlock 2 rebuilt from its own code: the same game,
+    native on Windows, macOS, Linux and Android, in HD, with a modern interface, network
+    play that works, and the original's bugs fixed.</p>
+    <div class="cta">
+      <a class="btn primary big" href="{{RELEASE}}">Download v{{VERSION}}</a>
+      <a class="btn big" href="whatsnew.html">What's new</a>
+    </div>
+    <p class="platforms">
+      <a href="{{DOWNLOAD}}-windows-x64.zip">Windows 64-bit</a>
+      <a href="{{DOWNLOAD}}-windows-x86.zip">Windows 32-bit</a>
+      <a href="{{DOWNLOAD}}-macos-arm64.zip">macOS (Apple silicon)</a>
+      <a href="{{DOWNLOAD}}-linux-x86_64.zip">Linux x86_64</a>
+      <a href="{{DOWNLOAD}}-linux-arm64.zip">Linux arm64</a>
+      <span title="Not in the releases yet: built from source">Android (in testing)</span>
+    </p>
+    <p class="note">Bring your own copy of Deadlock 2 from
+    <a href="https://www.gog.com/game/deadlock_2_shrine_wars">GOG</a> or
+    <a href="https://store.steampowered.com/app/328450">Steam</a>: the first start copies the
+    game's files from its folder, or straight from GOG's installer.</p>
+  </div>
+</section>
+
+<section class="wrap shots-section">
+  <a class="online" id="online" href="games.html" data-url="https://opendeadlock-relay.fly.dev/games">
+    <i class="dot"></i><span><b data-k="players">&ndash;</b> players online</span>
+    <span><b data-k="lobbies">&ndash;</b> games waiting</span>
+    <span><b data-k="playing">&ndash;</b> under way</span>
+    <span class="go">Games &rsaquo;</span>
+  </a>
+  <div class="section-title">Classic</div>
+  <div class="gallery classic">
+    <a href="img/mainmenu.png"><img src="img/mainmenu.png" alt="The main menu"></a>
+    <a href="img/worldmap.png"><img src="img/worldmap.png" alt="The world map at the start of a game"></a>
+    <a href="img/colony.png"><img src="img/colony.png" alt="Zoomed into the home colony"></a>
+  </div>
+  <div class="section-title">Modern</div>
+  <div class="gallery modern">
+    <a href="img/modern-mainmenu.png"><img src="img/modern-mainmenu.png" alt="The main menu in the modern UI"></a>
+    <a href="img/modern-worldmap.png"><img src="img/modern-worldmap.png" alt="The world map in the modern UI"></a>
+    <a href="img/modern-colony.png"><img src="img/modern-colony.png" alt="The home colony in the modern UI, the City Center's panel open"></a>
+  </div>
+  <p class="caption">The same screens in the original's interface and in the modern one; you
+  choose at the first start, and can switch in Settings.</p>
+</section>
+
+<section class="wrap">
+  <h2>What's different</h2>
+  <div class="features">
+    <div class="feature">
+      <h3>HD, any window</h3>
+      <p>Any window size or full screen, sharp at today's resolutions. A lit HD terrain and a 3D world map that zooms.</p>
+    </div>
+    <div class="feature">
+      <h3>Modern UI</h3>
+      <p>A second interface at the window's real size, panels over the live map. Every control of the original, under its own name.</p>
+    </div>
+    <div class="feature">
+      <h3>Android</h3>
+      <p>Played by touch on a tablet. Tried on the emulator so far.</p>
+    </div>
+    <div class="feature">
+      <h3>Multiplayer that works</h3>
+      <p>Network play over TCP/IP: Windows and Mac players in one game. Join by a code or from the public list, no port to open.</p>
+    </div>
+    <div class="feature">
+      <h3>Hotseat</h3>
+      <p>Several players at one computer, taking turns. A screen hides each player's empire from the next.</p>
+    </div>
+    <div class="feature">
+      <h3>{{BUGS}} bugs fixed</h3>
+      <p>The original's rules and balance, without its bugs. Each fix is listed with what changed.</p>
+    </div>
+    <div class="feature">
+      <h3>{{QOL}} improvements</h3>
+      <p>Quick save, Continue, more autosaves, shortcuts, clearer messages. None changes a rule.</p>
+    </div>
+    <div class="feature">
+      <h3>Your saves</h3>
+      <p>The original's save format, on every build. Deadlock 2 itself is never changed.</p>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2>Getting started</h2>
+  <ol class="steps">
+    <li><strong>Get Deadlock 2.</strong> Installed from the CD, Steam or GOG, or just GOG's
+    installer: OpenDeadlock reads the game's files from either.</li>
+    <li><strong>Download OpenDeadlock</strong> for your system from the
+    <a href="{{REPO}}/releases/latest">latest release</a> and unpack it anywhere.</li>
+    <li><strong>Start OpenDeadlock</strong> and select your Deadlock 2 folder or GOG's
+    installer. On macOS, run <code>xattr -dr com.apple.quarantine .</code> in OpenDeadlock's
+    folder once first; on Linux, name either as <code>gamedir=</code> in
+    <code>opendeadlock.ini</code>.</li>
+  </ol>
+  <p class="dim">More in the <a href="{{REPO}}#readme">README</a>: building from source,
+  settings, network play and reporting a bug.</p>
+</section>
+<script>
+// the relay's live counts (its /games), every 30 s; the dot goes grey when it is not reached
+(() => {
+  const row = document.getElementById('online');
+  const load = () => fetch(row.dataset.url, { cache: 'no-store' }).then(r => r.json()).then(g => {
+    row.querySelectorAll('b[data-k]').forEach(b => b.textContent = g.now[b.dataset.k] ?? 0);
+    row.classList.remove('offline');
+  }).catch(() => row.classList.add('offline'));
+  load();
+  setInterval(() => { if (!document.hidden) load(); }, 30000);
+})();
+</script>
+</body></html>

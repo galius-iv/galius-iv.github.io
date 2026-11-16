@@ -1,0 +1,133 @@
+<!doctype html>
+<!-- The FAQ's body, a template: build.py wraps it in the site's header and footer and fills
+     {{VERSION}}, {{RELEASE}}, {{REPO}} as for the landing page. The answers come from the
+     OpenDeadlock README, CHANGELOG and NETWORK.md: keep them in step. -->
+<html><body>
+<main class="wrap doc faq">
+<h1>FAQ</h1>
+<p class="lead">Short answers to what players ask first. More in the
+<a href="{{REPO}}#readme">README</a>.</p>
+
+<div class="section-title">Getting the game running</div>
+
+<details>
+  <summary>What do I need to play?</summary>
+  <p>Your own copy of Deadlock 2, installed from the CD, Steam or GOG, or just GOG's
+  installer. OpenDeadlock brings the program; the game's pictures, sounds and maps come
+  from your copy. No game data is included in the download.</p>
+</details>
+
+<details>
+  <summary>Which version of Deadlock 2 works?</summary>
+  <p>Any installed Deadlock 2, or GOG's installer itself. The port is made and checked
+  against GOG's v1.20.</p>
+</details>
+
+<details>
+  <summary>How do I install it?</summary>
+  <p>Download the zip for your system from the <a href="{{REPO}}/releases/latest">latest
+  release</a> and unpack it anywhere: that folder is OpenDeadlock's own. Start
+  <code>opendeadlock</code>; the first start asks for your Deadlock 2 folder or GOG's
+  installer and copies the game's files into <code>data/</code> beside the program (about
+  470 MB). Your Deadlock 2 is not changed.</p>
+</details>
+
+<details>
+  <summary>macOS says the app is damaged or can't be opened</summary>
+  <p>The macOS build is not notarized yet. Once, in OpenDeadlock's folder, run
+  <code>xattr -dr com.apple.quarantine .</code> in Terminal, then start
+  <code>./opendeadlock</code>. It needs macOS 26 on Apple silicon.</p>
+</details>
+
+<details>
+  <summary>On Linux nothing asks for the game</summary>
+  <p>There is no folder dialog on Linux. Put <code>gamedir=/path/to/Deadlock 2</code> (or
+  the path of GOG's installer) in <code>opendeadlock.ini</code> beside the program first.
+  Any distribution with glibc 2.28 or later works, on x86_64 or arm64.</p>
+</details>
+
+<details>
+  <summary>Is there an Android version?</summary>
+  <p>It builds and runs, made for tablets and played by touch, but it has only been tried
+  on the emulator. There is no APK in the releases yet.</p>
+</details>
+
+<div class="section-title">Playing</div>
+
+<details>
+  <summary>Is it still the same game?</summary>
+  <p>Yes. The rules and balance are the original's; only its bugs are fixed. The
+  improvements change no rule, and most of them are settings you can turn off. The <a href="changelog.html">changelog</a> lists every difference.</p>
+</details>
+
+<details>
+  <summary>Classic or modern interface?</summary>
+  <p>The first start asks which one you want. The classic one is the original's screens,
+  scaled; the modern one is drawn at your window's size, with panels over the live map.
+  You can switch in Settings at any time.</p>
+</details>
+
+<details>
+  <summary>Where are my saves?</summary>
+  <p>In <code>saves/</code> in OpenDeadlock's folder; campaigns' and network games' in
+  <code>saves/campaign/</code> and <code>saves/multiplayer/</code>. Custom scenarios and
+  maps go in <code>scenarios/</code>.</p>
+</details>
+
+<details>
+  <summary>Can I use my old saves from the original game?</summary>
+  <p>The port keeps the original's save format, and the first start copies your saves
+  over. Loading saves between the original and the port has not been fully tested yet, so
+  keep a copy of any save you care about.</p>
+</details>
+
+<details>
+  <summary>Where are the settings?</summary>
+  <p>In the game's Settings page, and in <code>opendeadlock.ini</code> beside the program.
+  The first start writes that file with every setting listed and explained in a comment.
+  The keys, the original's and the new ones, are in
+  <a href="{{REPO}}/blob/main/KEYS.md">KEYS.md</a>.</p>
+</details>
+
+<div class="section-title">Multiplayer</div>
+
+<details>
+  <summary>How do I play online?</summary>
+  <p>Host a network game and you get a six-letter code; the others press F2 on Join a
+  Game and type it. No port to open: games go through the public relay. A host can also
+  list the game publicly, and it then shows in Join a Game and on the
+  <a href="games.html">Games</a> page.</p>
+</details>
+
+<details>
+  <summary>Can I play with friends on other systems?</summary>
+  <p>Yes: Windows and Mac players have played in one game. All players need the same
+  version of OpenDeadlock. The port cannot play with the original game.</p>
+</details>
+
+<details>
+  <summary>How does hotseat work?</summary>
+  <p>Several players at one computer, taking turns. Start a multiplayer game and pick
+  Hotseat as the connection, then how many play here. Each player has their own turn,
+  event log and view, and a screen hides the last player's empire before the next sits
+  down.</p>
+</details>
+
+<div class="section-title">Problems</div>
+
+<details>
+  <summary>How do I report a bug?</summary>
+  <p>Right after the problem, start the game once with <code>--report</code>
+  (<code>./opendeadlock --report</code>, or <code>opendeadlock.exe --report</code> on
+  Windows). It writes a <code>report-&hellip;.zip</code> with the logs, your settings and your
+  newest save, and quits. Attach it to an <a href="{{REPO}}/issues">issue</a> with what you
+  did.</p>
+</details>
+
+<details>
+  <summary>Is this official?</summary>
+  <p>No. OpenDeadlock is a fan project, not affiliated with or endorsed by the rights holder
+  of Deadlock 2. It contains no game data: you need your own copy of the game.</p>
+</details>
+</main>
+</body></html>
