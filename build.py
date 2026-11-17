@@ -42,6 +42,8 @@ DL_URL = "https://github.com/galius-iv/galius-iv.github.io"
 # The public relay (galius-iv/relay): its /games, JSON open to any page (CORS *), counts the
 # games and names those their hosts listed (net_public=1); games.html fetches it.
 RELAY_GAMES = "https://opendeadlock-relay.fly.dev/games"
+# the relay's uptime, watched by UptimeRobot (its page refuses to be framed: a link)
+RELAY_STATUS = "https://stats.uptimerobot.com/OMP1tX2SSi"
 
 KINDS = [  # (key, label), in the filter's order
     ("feature", "Features"),
@@ -621,6 +623,8 @@ the others are only counted.</p>
   <div class="stat"><b data-k="longestMinutes">&ndash;</b><span>longest, minutes</span></div>
 </div>
 <p class="dim status" id="status"></p>
+<p class="dim">Is the relay up? Its uptime and any outages:
+<a href="%(uptime)s" target="_blank" rel="noopener">relay status</a> (UptimeRobot).</p>
 </main>
 <script>
 const URL_GAMES = %(url)s;
@@ -663,7 +667,7 @@ async function load() {
 }
 load();
 setInterval(() => { if (!document.hidden) load(); }, 30000);
-</script>""" % {"url": json.dumps(RELAY_GAMES)}
+</script>""" % {"url": json.dumps(RELAY_GAMES), "uptime": RELAY_STATUS}
     return page("Games - OpenDeadlock", "games", body, version)
 
 
