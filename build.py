@@ -12,7 +12,8 @@ screenshots, icon and tags) and writes DIR (default `dist/`, gitignored) from
                  entry's "After:" part, with its before/after screenshots
 - changelog.html CHANGELOG.md in full
 - games.html     the public relay's games, live (fetched by the page from RELAY_GAMES)
-- downloads.html every platform's zip of the last release (sizes and date from gh)
+- downloads.html every platform's zip and the APK of the last release, from this
+                 repository's release of it (DL_URL; sizes and date from gh)
 - faq.html       the FAQ, from src/faq.html (a template, as the landing page)
 
 with the screenshots it shows (docs/readme/, docs/changelog/) and the icon copied beside
@@ -32,6 +33,10 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(os.path.dirname(HERE), "opendeadlock")  # the checkout; --repo sets it
 REPO_URL = "https://github.com/galius-iv/opendeadlock"
+# The downloads: the release's files again, as a release of this repository, which is
+# public (the OpenDeadlock repository is private, so its releases' links work only for its
+# members). The page links only here for downloads.
+DL_URL = "https://github.com/galius-iv/galius-iv.github.io"
 # The public relay (galius-iv/relay): its /games, JSON open to any page (CORS *), counts the
 # games and names those their hosts listed (net_public=1); games.html fetches it.
 RELAY_GAMES = "https://opendeadlock-relay.fly.dev/games"
@@ -509,11 +514,11 @@ PLATFORMS = [
 
 
 def release_info(version):
-    """The release's date and its files' sizes, from GitHub (gh, signed in: the repository
-    is private); ({}, None) when gh cannot say, and the page goes without them."""
+    """The release's date and its files' sizes, from GitHub (gh: the downloads' release,
+    DL_URL's); ({}, None) when gh cannot say, and the page goes without them."""
     try:
         out = subprocess.check_output(
-            ["gh", "release", "view", "v" + version, "-R", REPO_URL.split("github.com/")[1],
+            ["gh", "release", "view", "v" + version, "-R", DL_URL.split("github.com/")[1],
              "--json", "publishedAt,assets"], cwd=ROOT, text=True, stderr=subprocess.DEVNULL)
         data = json.loads(out)
         return {a["name"]: a["size"] for a in data["assets"]}, data["publishedAt"][:10]
@@ -524,7 +529,7 @@ def release_info(version):
 def downloads(version):
     """Every platform's zip of the last release, with what it needs, and the checksums."""
     sizes, date = release_info(version)
-    base = "%s/releases/download/v%s/" % (REPO_URL, version)
+    base = "%s/releases/download/v%s/" % (DL_URL, version)
     rows = []
     for name, tail, needs in PLATFORMS:
         zip_name = "opendeadlock-%s-%s.zip" % (version, tail)
@@ -534,9 +539,14 @@ def downloads(version):
             '<a class="btn primary" href="%s%s">Download%s</a></div>'
             % (name, tail.split("-", 1)[1], needs, base, zip_name,
                " <small>%.1f MB</small>" % (size / 1e6) if size else ""))
-    rows.append('<div class="dl-row off"><div class="dl-what"><h3>Android <span>tablets</span></h3>'
-                '<p>Builds and runs on the emulator; not in the releases yet.</p></div>'
-                '<span class="btn" aria-disabled="true">Soon</span></div>')
+    apk = "opendeadlock-%s-android.apk" % version
+    size = sizes.get(apk)
+    rows.append('<div class="dl-row"><div class="dl-what"><h3>Android <span>tablets</span></h3>'
+                '<p>Android 7 or later, tablets in landscape (arm64, x86_64). Tried on the '
+                'emulator so far. Install the APK, start it once, then copy the Deadlock 2 '
+                'folder\'s files into <code>Android/data/org.opendeadlock/files</code>.</p></div>'
+                '<a class="btn primary" href="%s%s">Download%s</a></div>'
+                % (base, apk, " <small>%.1f MB</small>" % (size / 1e6) if size else ""))
     sums = ('<a href="%sSHA256SUMS">SHA256SUMS</a>' % base) if (not sizes or "SHA256SUMS" in sizes) else ""
     body = """<main class="wrap doc downloads">
 <h1>Downloads</h1>
@@ -544,14 +554,14 @@ def downloads(version):
 <code>opendeadlock</code>; the first start asks for your Deadlock 2 folder or GOG's installer.</p>
 <div class="dl-list">%(rows)s</div>
 <p class="dim small">%(sums)s%(sep)s<a href="%(rel)s">Release notes</a> &middot;
-<a href="%(repo)s/releases">All releases</a> &middot; <a href="whatsnew.html">What's new</a> &middot;
+<a href="%(dl)s/releases">All releases</a> &middot; <a href="whatsnew.html">What's new</a> &middot;
 <a href="faq.html">FAQ</a></p>
 <p class="note">You need your own copy of Deadlock 2, installed from the CD, Steam or GOG, or GOG's
 installer: no game data is in the download. Network games need the same version on every
 machine.</p>
 </main>""" % {"v": version, "date": ", released %s" % date if date else "", "rows": "".join(rows),
               "sums": sums, "sep": " &middot; " if sums else "",
-              "rel": "%s/releases/tag/v%s" % (REPO_URL, version), "repo": REPO_URL}
+              "rel": "%s/releases/tag/v%s" % (DL_URL, version), "dl": DL_URL}
     return page("Downloads - OpenDeadlock", "downloads", body, version)
 
 
@@ -666,8 +676,8 @@ def main():
              "downloads.html": downloads(version)}
 
     fields = {"VERSION": version, "REPO": REPO_URL,
-              "RELEASE": "%s/releases/tag/v%s" % (REPO_URL, version),
-              "DOWNLOAD": "%s/releases/download/v%s/opendeadlock-%s" % (REPO_URL, version, version),
+              "RELEASE": "%s/releases/tag/v%s" % (DL_URL, version),
+              "DOWNLOAD": "%s/releases/download/v%s/opendeadlock-%s" % (DL_URL, version, version),
               "BUGS": str(counts["game"]),
               "QOL": str(counts["feature"] + counts["qol"])}
     for name, key, title in [("index.html", "home", "OpenDeadlock - Deadlock 2, rebuilt for today"),
