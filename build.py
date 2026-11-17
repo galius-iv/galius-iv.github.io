@@ -500,11 +500,11 @@ PLATFORMS = [
     ("macOS", "macos-arm64", "macOS 26 or later, Apple silicon. Not notarized: once, in its folder, "
                              "<code>xattr -dr com.apple.quarantine .</code>"),
     ("Linux", "linux-x86_64", "x86_64, glibc 2.28 or later (2018 on); SDL3 is in the zip. No folder "
-                              "dialog: its files in the Deadlock 2 folder, or <code>gamedir=</code> in "
-                              "<code>opendeadlock.ini</code>"),
+                              "dialog: its files in the Deadlock 2 folder, GOG's installer in its folder, or "
+                              "<code>gamedir=</code> in <code>opendeadlock.ini</code>"),
     ("Linux", "linux-arm64", "arm64, glibc 2.28 or later; SDL3 is in the zip. No folder "
-                             "dialog: its files in the Deadlock 2 folder, or <code>gamedir=</code> in "
-                             "<code>opendeadlock.ini</code>"),
+                             "dialog: its files in the Deadlock 2 folder, GOG's installer in its folder, or "
+                             "<code>gamedir=</code> in <code>opendeadlock.ini</code>"),
 ]
 
 
