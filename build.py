@@ -10,7 +10,9 @@ screenshots, icon and tags) and writes DIR (default `dist/`, gitignored) from
 - index.html     the landing page; the download button names the last tag (`git describe`)
 - whatsnew.html  every change a player notices, two or three sentences each, from the
                  entry's "After:" part, with its before/after screenshots
-- changelog.html CHANGELOG.md in full
+- changelog.html CHANGELOG.md in full, grouped by release (the first tag whose
+                 CHANGELOG.md names the entry) rather than by day; What's new tags each
+                 change with its release too
 - games.html     the public relay's games, live (fetched by the page from RELAY_GAMES)
 - downloads.html every platform's zip and the APK of the last release, from this
                  repository's release of it (DL_URL; sizes and date from gh)
@@ -253,6 +255,31 @@ def parse_changelog():
     return intro, out
 
 
+def by_version(days):
+    """The changelog's days regrouped by release: [(version, lead, [entry])], newest first.
+    An entry belongs to the first tag whose CHANGELOG.md names it (by title); one no tag
+    names yet is "Unreleased". Each entry gets its "version"."""
+    try:
+        tags = subprocess.check_output(["git", "tag", "--list", "v*", "--sort=v:refname"],
+                                       cwd=ROOT, text=True).split()
+    except (subprocess.CalledProcessError, OSError):
+        tags = []
+    first = {}
+    for tag in tags:
+        text = subprocess.check_output(["git", "show", tag + ":CHANGELOG.md"], cwd=ROOT, text=True)
+        for title in re.findall(r"^### (.*)$", text, flags=re.M):
+            first.setdefault(title.rsplit(" -- ", 1)[0].strip(), tag)
+    groups = {}
+    for _, lead, entries in days:
+        for e in entries:
+            e["version"] = first.get(e["title"], "Unreleased")
+            groups.setdefault(e["version"], ([], []))[1].append(e)
+        if lead:  # only "Before this log": the start, before the first release
+            groups.setdefault(tags[0] if tags else "Unreleased", ([], []))[0].append(lead)
+    order = ["Unreleased"] + tags[::-1]
+    return [(v, "\n\n".join(groups[v][0]), groups[v][1]) for v in order if v in groups]
+
+
 def kind_key(kind):
     first = kind.split(",")[0].split("(")[0].strip().lower()
     if first.startswith("port") or first == "documentation":
@@ -414,7 +441,7 @@ def kind_chip(entry):
 def whatsnew(days, version, used):
     """Every change a player notices, newest first, one short sentence each, its kind
     (feature, quality of life, bug fix) tagged; the sidebar filters them: All, or one kind."""
-    items = [(date, e) for date, _, entries in days for e in entries if noticeable(e)]
+    items = [(e["version"], e) for _, _, entries in days for e in entries if noticeable(e)]
     counts = {}
     for _, e in items:
         counts[e["key"]] = counts.get(e["key"], 0) + 1
@@ -422,7 +449,7 @@ def whatsnew(days, version, used):
     side += ['<a class="filt k-%s" href="#%s" data-k="%s">%s<span>%d</span></a>'
              % (k, k, k, label, counts[k]) for k, label in KINDS if counts.get(k)]
     cards = []
-    for date, e in items:
+    for ver, e in items:
         pics = images(e)
         pair = before_after(pics)
         used.update(src for _, src in pics)
@@ -439,7 +466,7 @@ def whatsnew(days, version, used):
             '<p>%s <a class="more" href="changelog.html#%s">More</a></p>'
             '<span class="meta">%s<span class="date">%s</span></span></div>%s</article>'
             % (e["slug"], e["key"], inline(plain_title(e)), inline(short(e)), e["slug"],
-               kind_chip(e), html.escape(date), shots))
+               kind_chip(e), html.escape(ver), shots))
     body = """<main class="wrap doc with-toc">
 <aside class="toc side">%s</aside>
 <div>
@@ -471,12 +498,10 @@ show(location.hash.slice(1));
 
 def changelog(intro, days, version, used):
     toc, parts = [], []
-    for date, lead, entries in days:
-        anchor = "d-" + re.sub(r"[^a-z0-9]+", "-", date.lower()).strip("-")
-        toc.append('<a href="#%s">%s</a>' % (anchor, html.escape(date)))
-        sec = ['<h2 id="%s">%s</h2>' % (anchor, html.escape(date))]
-        if lead:
-            sec.append(render(blocks(lead.split("\n"))))
+    for ver, lead, entries in days:
+        anchor = re.sub(r"[^a-z0-9]+", "-", ver.lower()).strip("-")
+        toc.append('<a href="#%s">%s</a>' % (anchor, html.escape(ver)))
+        sec = ['<h2 id="%s">%s</h2>' % (anchor, html.escape(ver))]
         for e in entries:
             used.update(src for _, src in images(e))
             chip = '<span class="chip k-%s">%s</span>' % (e["key"], html.escape(e["kind"] or "change"))
@@ -484,10 +509,14 @@ def changelog(intro, days, version, used):
                        '<h3><a href="#%s">%s</a></h3></div>%s</article>'
                        % (e["slug"], chip, e["slug"], entry_title(e),
                           render(blocks(e["lines"]), before_after(images(e)))))
+        if lead:  # what the first steps changed, before the log began: the oldest, so last
+            sec.append('<article id="before" class="entry"><div class="card-head">'
+                       '<h3><a href="#before">Before this log</a></h3></div>%s</article>'
+                       % render(blocks(lead.split("\n"))))
         parts.append("<section>%s</section>" % "\n".join(sec))
     intro_body = re.sub(r"^# .*\n", "", intro).strip()
     body = """<main class="wrap doc with-toc">
-<aside class="toc"><div class="section-title">Dates</div>%s</aside>
+<aside class="toc"><div class="section-title">Versions</div>%s</aside>
 <div>
 <h1>Changelog</h1>
 <div class="intro">%s</div>
@@ -664,6 +693,7 @@ def main():
         sys.exit("build.py: no tag to name the release; give --version")
 
     intro, days = parse_changelog()
+    days = by_version(days)
     entries = [e for _, _, es in days for e in es]
     counts = {k: sum(1 for e in entries if e["key"] == k) for k, _ in KINDS}
 
