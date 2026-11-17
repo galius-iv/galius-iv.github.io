@@ -1,8 +1,8 @@
 <!doctype html>
 <!-- The landing page's body, a template: build.py wraps it in the site's header and
      footer and fills {{VERSION}}, {{RELEASE}}, {{DOWNLOAD}}, {{REPO}}, {{BUGS}} and
-     {{QOL}} (the last tag, its release, its zips' names less the platform, the counts
-     from CHANGELOG.md). -->
+     {{QOL}}, {{SIZES}} (the last tag, its release, its zips' names less the platform, the counts
+     from CHANGELOG.md, the release's files' sizes as JSON). -->
 <html><body>
 <section class="hero">
   <div class="wrap">
@@ -12,9 +12,11 @@
     native on Windows, macOS, Linux and Android, in HD, with a modern interface, network
     play that works, and the original's bugs fixed.</p>
     <div class="cta">
-      <a class="btn primary big" href="downloads.html">Download v{{VERSION}}</a>
+      <a class="btn primary big" id="get" data-sizes="{{SIZES}}" href="downloads.html">Download v{{VERSION}}</a>
       <a class="btn big" href="whatsnew.html">What's new</a>
     </div>
+    <p class="other" id="other" hidden><a href="downloads.html">Other systems and
+    what each needs</a></p>
     <p class="platforms">
       <a href="{{DOWNLOAD}}-windows-x64.zip">Windows 64-bit</a>
       <a href="{{DOWNLOAD}}-windows-x86.zip">Windows 32-bit</a>
@@ -108,6 +110,32 @@
   settings, network play and reporting a bug.</p>
 </section>
 <script>
+// the download button names the visitor's system and goes straight to its zip (its size
+// from the release); a system we cannot tell, or have no build for (iOS), keeps
+// "Download" to the Downloads page. A Mac is taken for Apple silicon: the only Mac build,
+// and the browser does not say
+(() => {
+  const btn = document.getElementById('get'), sizes = JSON.parse(btn.dataset.sizes || '{}');
+  const ua = navigator.userAgent, plat = (navigator.userAgentData || {}).platform || navigator.platform || '';
+  const touch = navigator.maxTouchPoints > 1;
+  let pick = null;
+  if (/Android/i.test(ua)) pick = ['android.apk', 'Android'];
+  else if (/iPhone|iPad|iPod/.test(ua) || (/Mac/.test(plat + ua) && touch)) pick = null;
+  else if (/Win/.test(plat + ua)) pick = /WOW64|Win64|x64|amd64/i.test(ua) || !/Windows NT/.test(ua)
+    ? ['windows-x64.zip', 'Windows'] : ['windows-x86.zip', 'Windows (32-bit)'];
+  else if (/Mac/.test(plat + ua)) pick = ['macos-arm64.zip', 'macOS'];
+  else if (/Linux|X11|CrOS/.test(plat + ua)) pick = /aarch64|arm64|armv8/i.test(plat + ua)
+    ? ['linux-arm64.zip', 'Linux (arm64)'] : ['linux-x86_64.zip', 'Linux'];
+  if (!pick) return;
+  const file = 'opendeadlock-{{VERSION}}-' + pick[0], size = sizes[file];
+  btn.href = '{{DOWNLOAD}}-' + pick[0];
+  btn.textContent = 'Download for ' + pick[1] + ' ';
+  const small = document.createElement('small');
+  small.textContent = 'v{{VERSION}}' + (size ? ' \u00b7 ' + (size / 1e6).toFixed(1) + ' MB' : '');
+  btn.append(small);
+  document.getElementById('other').hidden = false;
+})();
+
 // the relay's live counts (its /games), every 30 s; the dot goes grey when it is not reached
 (() => {
   const row = document.getElementById('online');

@@ -24,6 +24,7 @@ Plain Python, nothing to install; the colours and type are the modern UI's
 (../modern-ui/ui.css).
 """
 import argparse
+import functools
 import html
 import json
 import os
@@ -39,6 +40,24 @@ REPO_URL = "https://github.com/galius-iv/opendeadlock"
 # public (the OpenDeadlock repository is private, so its releases' links work only for its
 # members). The page links only here for downloads.
 DL_URL = "https://github.com/galius-iv/galius-iv.github.io"
+# where the pages are served: link previews and the sitemap need absolute addresses
+SITE_URL = "https://galius-iv.github.io/"
+# each page's file and the sentence search engines and link previews show for it
+PAGES = {
+    "home": ("index.html", "Deadlock 2 (1998) rebuilt from its own code: the same game, native "
+             "on Windows, macOS, Linux and Android, in HD, with a modern interface, network play "
+             "that works and the original's bugs fixed. Bring your own copy from GOG or Steam."),
+    "downloads": ("downloads.html", "Download OpenDeadlock for Windows, macOS, Linux or Android. "
+                  "You need your own copy of Deadlock 2."),
+    "new": ("whatsnew.html", "Every change a player notices in OpenDeadlock against the original "
+            "Deadlock 2: bug fixes, new features and quality of life, with screenshots."),
+    "log": ("changelog.html", "OpenDeadlock's full changelog, by release: every change against "
+            "the original Deadlock 2 and how it was checked."),
+    "games": ("games.html", "OpenDeadlock's network games on the public relay, live: games "
+              "waiting for players, games under way, and how to join."),
+    "faq": ("faq.html", "Questions about OpenDeadlock: what you need, installing, network play, "
+            "saves and reporting a bug."),
+}
 # The public relay (galius-iv/relay): its /games, JSON open to any page (CORS *), counts the
 # games and names those their hosts listed (net_public=1); games.html fetches it.
 RELAY_GAMES = "https://opendeadlock-relay.fly.dev/games"
@@ -396,7 +415,21 @@ def page(title, active, body, version, extra_head=""):
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>%(title)s</title>
+<meta name="description" content="%(desc)s">
+<link rel="canonical" href="%(url)s">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OpenDeadlock">
+<meta property="og:title" content="%(title)s">
+<meta property="og:description" content="%(desc)s">
+<meta property="og:url" content="%(url)s">
+<meta property="og:image" content="%(site)simg/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="OpenDeadlock: Deadlock 2's world map in the modern interface">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#07090d">
 <link rel="icon" href="img/opendeadlock.png">
+<link rel="apple-touch-icon" href="img/opendeadlock.png">
 <link rel="stylesheet" href="style.css">%(extra)s
 </head><body>
 <header class="top"><div class="wrap">
@@ -427,7 +460,9 @@ def page(title, active, body, version, extra_head=""):
 <script src="lightbox.js"></script>
 <script src="compare.js"></script>
 </body></html>
-""" % {"title": title, "nav": nav, "body": body, "version": version, "repo": REPO_URL,
+""" % {"title": html.escape(title), "desc": html.escape(PAGES[active][1]),
+       "url": SITE_URL + ("" if active == "home" else PAGES[active][0]), "site": SITE_URL,
+       "nav": nav, "body": body, "version": version, "repo": REPO_URL,
        "repo_short": REPO_URL.split("//")[1], "extra": extra_head}
 
 
@@ -544,6 +579,7 @@ PLATFORMS = [
 ]
 
 
+@functools.lru_cache(None)
 def release_info(version):
     """The release's date and its files' sizes, from GitHub (gh: the downloads' release,
     DL_URL's); ({}, None) when gh cannot say, and the page goes without them."""
@@ -712,6 +748,7 @@ def main():
     fields = {"VERSION": version, "REPO": REPO_URL,
               "RELEASE": "%s/releases/tag/v%s" % (DL_URL, version),
               "DOWNLOAD": "%s/releases/download/v%s/opendeadlock-%s" % (DL_URL, version, version),
+              "SIZES": html.escape(json.dumps(release_info(version)[0])),
               "BUGS": str(counts["game"]),
               "QOL": str(counts["feature"] + counts["qol"])}
     for name, key, title in [("index.html", "home", "OpenDeadlock - Deadlock 2, rebuilt for today"),
@@ -741,6 +778,14 @@ def main():
             missing.append(src)
     for src in missing:
         print("build.py: missing picture %s" % src, file=sys.stderr)
+    og_image(os.path.join(args.out, "img"))
+    with open(os.path.join(args.out, "sitemap.xml"), "w", encoding="utf-8") as f:
+        f.write('<?xml version="1.0" encoding="UTF-8"?>\n'
+                '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n%s</urlset>\n'
+                % "".join("  <url><loc>%s%s</loc></url>\n"
+                          % (SITE_URL, "" if k == "home" else name) for k, (name, _) in PAGES.items()))
+    with open(os.path.join(args.out, "robots.txt"), "w", encoding="utf-8") as f:
+        f.write("User-agent: *\nAllow: /\nSitemap: %ssitemap.xml\n" % SITE_URL)
     shown = sum(1 for e in entries if noticeable(e))
     print("build.py: %s (v%s): %d changes, %d in What's new, %d pictures"
           % (args.out, version, len(entries), shown, len(used)))
@@ -749,6 +794,42 @@ def main():
     if args.publish:
         publish(args.out, version)
     return 0
+
+
+def og_image(img):
+    """img/og.jpg, the picture link previews show (1200x630): the modern UI's world map,
+    darkened at the bottom under the name and the line. Needs Pillow; without it there
+    is none, and link previews go without a picture."""
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError:
+        print("build.py: no Pillow (pip install pillow): no og.jpg for link previews", file=sys.stderr)
+        return
+    shot = Image.open(os.path.join(img, "modern-worldmap.png")).convert("RGB")
+    w, h = shot.size
+    ch = round(w * 630 / 1200)
+    top = (h - ch) // 2
+    pic = shot.crop((0, top, w, top + ch)).resize((1200, 630), Image.LANCZOS)
+    shade = Image.new("L", (1, 630))
+    for y in range(630):
+        shade.putpixel((0, y), max(0, min(235, int((y - 280) * 1.1))))
+    pic.paste(Image.new("RGB", (1200, 630), (6, 10, 16)), (0, 0), shade.resize((1200, 630)))
+    draw = ImageDraw.Draw(pic)
+
+    def font(size, face):  # face: the index in Avenir Next.ttc, 0 Bold, 5 Medium
+        for path, index in (("/System/Library/Fonts/Avenir Next.ttc", face),
+                            ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 0)):
+            try:
+                return ImageFont.truetype(path, size, index=index)
+            except OSError:
+                continue
+        return ImageFont.load_default()
+    icon = Image.open(os.path.join(img, "opendeadlock.png")).convert("RGBA").resize((96, 96))
+    pic.paste(icon, (56, 450), icon)
+    draw.text((172, 452), "OpenDeadlock", font=font(64, 0), fill=(255, 255, 255))
+    draw.text((174, 530), "Deadlock 2, rebuilt for today's machines", font=font(32, 5),
+              fill=(70, 224, 255))
+    pic.save(os.path.join(img, "og.jpg"), quality=85, optimize=True, progressive=True)
 
 
 def publish(out, version):
