@@ -291,6 +291,8 @@ footer { border-top-color: var(--edge); }
 .stat b { display: block; font: 700 2rem var(--mono); color: #fff; text-shadow: 0 0 12px rgba(70, 224, 255, .5); }
 .stat span { color: var(--text-dim); font-size: .9rem; }
 .stats.small .stat b { font-size: 1.4rem; }
+.uptime { display: flex; width: fit-content; flex-wrap: wrap; gap: .4rem; margin: 0 0 1rem; }
+.uptime img { display: block; }
 .games { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: .4rem; }
 .games li { display: flex; justify-content: space-between; align-items: center; gap: 1rem;
   padding: .7rem 1rem; background: rgba(70, 224, 255, .05); border-left: 2px solid var(--cyan-dim); }

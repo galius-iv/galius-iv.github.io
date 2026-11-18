@@ -63,6 +63,10 @@ PAGES = {
 RELAY_GAMES = "https://opendeadlock-relay.fly.dev/games"
 # the relay's uptime, watched by UptimeRobot (its page refuses to be framed: a link)
 RELAY_STATUS = "https://stats.uptimerobot.com/OMP1tX2SSi"
+# UptimeRobot's monitor of the relay (its /healthz every 5 min): the monitor-specific key,
+# read-only and for this one monitor, so it may be public. Shields draws the Games badges.
+UPTIME_KEY = "m804709281-1c2aa9d9648118257c6ecd63"
+UPTIME_BADGE = "https://img.shields.io/uptimerobot/%s/" + UPTIME_KEY + "?style=flat-square&amp;label=%s"
 
 KINDS = [  # (key, label), in the filter's order
     ("feature", "Features"),
@@ -645,6 +649,10 @@ the others are only counted.</p>
   <div class="stat"><b data-k="lobbies">&ndash;</b><span>waiting for players</span></div>
   <div class="stat"><b data-k="players">&ndash;</b><span>players online</span></div>
 </div>
+<a class="uptime" href="%(uptime)s" target="_blank" rel="noopener" title="Relay status (UptimeRobot)">
+<img src="%(up)s" alt="Relay status" height="20">
+<img src="%(d7)s" alt="Relay uptime, 7 days" height="20">
+<img src="%(d30)s" alt="Relay uptime, 30 days" height="20"></a>
 <div class="section-title">Waiting for players</div>
 <ul class="games" id="lobbies"><li class="empty">Loading&hellip;</li></ul>
 <p class="dim join">Join with the game's code: F2 on the Join a Game screen, or
@@ -706,7 +714,10 @@ async function load() {
 }
 load();
 setInterval(() => { if (!document.hidden) load(); }, 30000);
-</script>""" % {"url": json.dumps(RELAY_GAMES), "uptime": RELAY_STATUS}
+</script>""" % {"url": json.dumps(RELAY_GAMES), "uptime": RELAY_STATUS,
+              "up": UPTIME_BADGE % ("status", "relay"),
+              "d7": UPTIME_BADGE % ("ratio/7", "uptime%207%20days"),
+              "d30": UPTIME_BADGE % ("ratio/30", "uptime%2030%20days")}
     return page("Games - OpenDeadlock", "games", body, version)
 
 
