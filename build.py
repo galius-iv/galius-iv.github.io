@@ -672,6 +672,9 @@ function fill(box, obj) {
 function list(ul, items, row, empty) {
   ul.replaceChildren(...(items.length ? items.map(row) : [el('li', 'empty', empty)]));
 }
+// the host's release (its git describe: v0.1.0); a game older than that field gives its
+// build's date only
+function release(l) { return l.release || 'v' + l.version; }
 function game(name, meta) {
   const li = el('li'); li.append(el('span', 'name', name || 'A game'), meta); return li;
 }
@@ -685,7 +688,7 @@ async function load() {
     fill(document.getElementById('played'), g.played);
     list(document.getElementById('lobbies'), g.lobbies, l => {
       const meta = el('span', 'meta');
-      meta.append(el('span', '', l.players + '/' + l.max + ' players \u00b7 v' + l.version + ' \u00b7 '));
+      meta.append(el('span', '', l.players + '/' + l.max + ' players \u00b7 ' + release(l) + ' \u00b7 '));
       const code = el('button', 'code', l.code);
       code.title = 'Copy the code';
       code.onclick = () => navigator.clipboard?.writeText(l.code).then(() => {
@@ -694,7 +697,7 @@ async function load() {
       return game(l.name, meta);
     }, 'No listed game is waiting for players.');
     list(document.getElementById('playing'), g.playing,
-      p => game(p.name, el('span', 'meta', p.players + ' players \u00b7 ' + p.minutes + ' min')),
+      p => game(p.name, el('span', 'meta', p.players + ' players \u00b7 ' + (p.release ? p.release + ' \u00b7 ' : '') + p.minutes + ' min')),
       'No listed game is under way.');
     status.textContent = 'Updated ' + new Date().toLocaleTimeString() + ' \u00b7 every 30 s';
   } catch (e) {
