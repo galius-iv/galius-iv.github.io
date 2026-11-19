@@ -1,6 +1,6 @@
 <!doctype html>
 <!-- The landing page's body, a template: build.py wraps it in the site's header and
-     footer and fills {{VERSION}}, {{RELEASE}}, {{DOWNLOAD}}, {{REPO}}, {{BUGS}} and
+     footer and fills {{VERSION}}, {{RELEASE}}, {{DOWNLOAD}}, {{REPO}}, {{DISCORD}}, {{BUGS}} and
      {{QOL}}, {{SIZES}} (the last tag, its release, its zips' names less the platform, the counts
      from CHANGELOG.md, the release's files' sizes as JSON). -->
 <html><body>
@@ -14,6 +14,7 @@
     <div class="cta">
       <a class="btn primary big" id="get" data-sizes="{{SIZES}}" href="downloads.html">Download v{{VERSION}}</a>
       <a class="btn big" href="whatsnew.html">What's new</a>
+      <a class="btn big" href="{{DISCORD}}">Discord</a>
     </div>
     <p class="other" id="other" hidden><a href="downloads.html">Other systems and
     what each needs</a></p>

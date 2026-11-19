@@ -36,6 +36,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.join(os.path.dirname(HERE), "opendeadlock")  # the checkout; --repo sets it
 REPO_URL = "https://github.com/galius-iv/opendeadlock"
+# the players' Discord server: finding games, questions, bugs
+DISCORD_URL = "https://discord.gg/XdEABUBC6Z"
 # The downloads: the release's files again, as a release of this repository, which is
 # public (the OpenDeadlock repository is private, so its releases' links work only for its
 # members). The page links only here for downloads.
@@ -462,7 +464,7 @@ def page(title, active, body, version, extra_head=""):
 <header class="top"><div class="wrap">
   <a class="brand" href="index.html"><img src="img/opendeadlock.png" alt="">OpenDeadlock</a>
   <button class="menu" aria-label="Menu" aria-expanded="false" aria-controls="nav"><i></i><i></i><i></i></button>
-  <nav id="nav">%(nav)s<a class="ext" href="%(repo)s">GitHub<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3H3v10h10v-3M9 2h5v5M14 2 7 9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></a></nav>
+  <nav id="nav">%(nav)s<a class="ext" href="%(discord)s">Discord<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3H3v10h10v-3M9 2h5v5M14 2 7 9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></a><a class="ext" href="%(repo)s">GitHub<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3H3v10h10v-3M9 2h5v5M14 2 7 9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></a></nav>
 </div></header>
 <script>
 // the phone's menu: the button opens the top bar's links below it; a link, Esc or a click
@@ -482,14 +484,14 @@ def page(title, active, body, version, extra_head=""):
   Deadlock 2. No game data is included: you need your own copy of Deadlock 2 (<a
   href="https://www.gog.com/game/deadlock_2_shrine_wars">GOG</a> or <a
   href="https://store.steampowered.com/app/328450">Steam</a>).</p>
-  <p class="dim">OpenDeadlock v%(version)s &middot; <a href="%(repo)s">%(repo_short)s</a></p>
+  <p class="dim">OpenDeadlock v%(version)s &middot; <a href="%(discord)s">Discord</a> &middot; <a href="%(repo)s">%(repo_short)s</a></p>
 </div></footer>
 <script src="lightbox.js"></script>
 <script src="compare.js"></script>
 </body></html>
 """ % {"title": html.escape(title), "desc": html.escape(PAGES[active][1]),
        "url": SITE_URL + ("" if active == "home" else PAGES[active][0]), "site": SITE_URL,
-       "nav": nav, "body": body, "version": version, "repo": REPO_URL,
+       "nav": nav, "body": body, "version": version, "repo": REPO_URL, "discord": DISCORD_URL,
        "repo_short": REPO_URL.split("//")[1], "extra": extra_head}
 
 
@@ -686,7 +688,8 @@ the others are only counted.</p>
 <div class="section-title">Waiting for players</div>
 <ul class="games" id="lobbies"><li class="empty">Loading&hellip;</li></ul>
 <p class="dim join">Join with the game's code: F2 on the Join a Game screen, or
-<code>--join CODE</code> on the command line. All players need the same version.</p>
+<code>--join CODE</code> on the command line. All players need the same version.
+Looking for players? Ask on <a href="%(discord)s">Discord</a>.</p>
 <div class="section-title">Under way</div>
 <ul class="games" id="playing"><li class="empty">Loading&hellip;</li></ul>
 <div class="section-title">Played</div>
@@ -746,6 +749,7 @@ load();
 setInterval(() => { if (!document.hidden) load(); }, 30000);
 </script>""" % {"url": json.dumps(RELAY_GAMES), "uptime": RELAY_STATUS,
               "up": UPTIME_BADGE % ("status", "relay"),
+              "discord": DISCORD_URL,
               "d7": UPTIME_BADGE % ("ratio/7", "uptime%207%20days"),
               "d30": UPTIME_BADGE % ("ratio/30", "uptime%2030%20days")}
     return page("Games - OpenDeadlock", "games", body, version)
@@ -789,7 +793,7 @@ def main():
              "games.html": games(version),
              "downloads.html": downloads(version)}
 
-    fields = {"VERSION": version, "REPO": REPO_URL,
+    fields = {"VERSION": version, "REPO": REPO_URL, "DISCORD": DISCORD_URL,
               "RELEASE": "%s/releases/tag/v%s" % (DL_URL, version),
               "DOWNLOAD": "%s/releases/download/v%s/opendeadlock-%s" % (DL_URL, version, version),
               "SIZES": html.escape(json.dumps(release_info(version)[0])),

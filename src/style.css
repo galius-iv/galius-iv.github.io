@@ -384,7 +384,7 @@ a.online .go { margin-left: auto; color: var(--cyan); text-transform: uppercase;
 .top.open .menu i:nth-child(1) { transform: translateY(7px) rotate(45deg); }
 .top.open .menu i:nth-child(2) { opacity: 0; }
 .top.open .menu i:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-@media (max-width: 760px) {
+@media (max-width: 860px) {  /* the top bar's links need ~850px; below that, the menu button */
   .menu { display: flex; }
   .top nav { display: none; position: absolute; top: 3.5rem; left: 0; right: 0; flex-direction: column;
     gap: 0; padding: .4rem 16px 1rem; background: #02090d; border-bottom: 1px solid var(--edge);
