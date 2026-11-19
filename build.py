@@ -286,6 +286,9 @@ def parse_changelog():
             m = re.search(r"\s*\[([a-z, ]+)\]\s*$", kind)
             if m:
                 kind, domains = kind[:m.start()], [d.strip() for d in m.group(1).split(",")]
+            if not domains:  # an older checkout: What's new would be one ungrouped list
+                sys.exit("build.py: CHANGELOG.md's %r has no [domain] after its kind; is %s "
+                         "up to date (git pull)?" % (title, ROOT))
             unknown = set(domains) - set(dict(DOMAINS))
             if unknown:
                 sys.exit("build.py: CHANGELOG.md's %r names domains it does not know: %s"
