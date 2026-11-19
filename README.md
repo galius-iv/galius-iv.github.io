@@ -21,5 +21,7 @@ install.
 - `build.py`: the pages, from the checkout's `CHANGELOG.md`; the screenshots it shows
   (`docs/readme/`, `docs/changelog/`) and the icon are copied into `dist/img/`
 
-What's new leaves out the port's own bugs fixed and the changes nobody notices in play
+What's new groups the changes by domain, the `[battle]` after each CHANGELOG.md entry's
+kind (`DOMAINS` in build.py; the changelog's header lists them), each under Features, QoL
+and Bug fixes. It leaves out the port's own bugs fixed and the changes nobody notices in play
 (unreachable code, a hostile network peer ...); the full changelog has every entry.

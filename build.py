@@ -75,6 +75,21 @@ KINDS = [  # (key, label), in the filter's order
     ("port", "Port fixes"),
 ]
 
+DOMAINS = [  # (key, label): where in the game a change is, CHANGELOG.md's [domain] after the
+    ("battle", "Battle"),     # kind; What's new's sidebar, in this order. The keys are the
+    ("armies", "Armies"),     # changelog header's list (its check_docs.py refuses others).
+    ("ai", "AI"),
+    ("colony", "Colony"),
+    ("map", "World map"),
+    ("empire", "Empire"),
+    ("scenarios", "Scenarios"),
+    ("multiplayer", "Multiplayer"),
+    ("saves", "Saves"),
+    ("interface", "Interface"),
+    ("mobile", "Mobile"),
+    ("system", "System"),
+]
+
 # The settings and platform changes that are features (a new way to play or a new
 # platform); the rest of them are quality of life. By title, chosen by hand.
 FEATURE = re.compile(r"modern UI|Android|Native Linux|Hotseat: several|\brelay\b|"
@@ -252,7 +267,7 @@ def render(blks, pair=None):
 # ---------------------------------------------------------------- the changelog
 
 def parse_changelog():
-    """[(date, [entry])], each entry a dict: title, kind, note, key, slug, lines."""
+    """[(date, [entry])], each entry a dict: title, kind, key, domains, slug, lines."""
     text = open(os.path.join(ROOT, "CHANGELOG.md"), encoding="utf-8").read()
     intro, *days = re.split(r"^## ", text, flags=re.M)
     out, slugs = [], set()
@@ -265,6 +280,14 @@ def parse_changelog():
             kind = ""
             if " -- " in title:
                 title, kind = title.rsplit(" -- ", 1)
+            domains = []
+            m = re.search(r"\s*\[([a-z, ]+)\]\s*$", kind)
+            if m:
+                kind, domains = kind[:m.start()], [d.strip() for d in m.group(1).split(",")]
+            unknown = set(domains) - set(dict(DOMAINS))
+            if unknown:
+                sys.exit("build.py: CHANGELOG.md's %r names domains it does not know: %s"
+                         % (title, ", ".join(sorted(unknown))))
             slug = base = re.sub(r"[^a-z0-9]+", "-", re.sub(r"`", "", title.lower())).strip("-")[:60]
             n = 2
             while slug in slugs:
@@ -274,7 +297,7 @@ def parse_changelog():
             if key in ("setting", "platform"):
                 key = "feature" if FEATURE.search(title) else "qol"
             entries.append({"title": title.strip(), "kind": kind.strip(),
-                            "key": key, "slug": slug,
+                            "key": key, "domains": domains, "slug": slug,
                             "lines": body.rstrip().split("\n")})
         out.append((head.strip(), lead.strip(), entries))
     return intro, out
@@ -474,22 +497,24 @@ def entry_title(entry):
     return inline(entry["title"])
 
 
-def kind_chip(entry):
-    label = dict(KINDS)[entry["key"]]
-    return '<span class="chip k-%s">%s</span>' % (entry["key"], label)
+def domain_chips(entry):
+    return "".join('<span class="chip d-%s">%s</span>' % (d, dict(DOMAINS)[d])
+                   for d in entry["domains"])
 
 
 def whatsnew(days, version, used):
-    """Every change a player notices, newest first, one short sentence each, its kind
-    (feature, quality of life, bug fix) tagged; the sidebar filters them: All, or one kind."""
+    """Every change a player notices, one short sentence each, under Features, QoL and Bug
+    fixes, newest first in each; the sidebar shows one domain's (Battle, Colony ...) or all.
+    The port's own bugs fixed are only in the changelog (noticeable)."""
     items = [(e["version"], e) for _, _, entries in days for e in entries if noticeable(e)]
     counts = {}
     for _, e in items:
-        counts[e["key"]] = counts.get(e["key"], 0) + 1
+        for d in e["domains"]:
+            counts[d] = counts.get(d, 0) + 1
     side = ['<a class="filt k-all on" href="#all" data-k="all">All<span>%d</span></a>' % len(items)]
-    side += ['<a class="filt k-%s" href="#%s" data-k="%s">%s<span>%d</span></a>'
-             % (k, k, k, label, counts[k]) for k, label in KINDS if counts.get(k)]
-    cards = []
+    side += ['<a class="filt" href="#%s" data-k="%s">%s<span>%d</span></a>'
+             % (k, k, label, counts[k]) for k, label in DOMAINS if counts.get(k)]
+    cards = {}
     for ver, e in items:
         pics = images(e)
         pair = before_after(pics)
@@ -502,29 +527,34 @@ def whatsnew(days, version, used):
             shots = '<div class="thumbs">%s</div>' % "".join(
                 '<a href="%s"><img src="%s" alt="%s" loading="lazy"></a>'
                 % (img_path(src), img_path(src), html.escape(alt)) for alt, src in pics)
-        cards.append(
-            '<article class="item" id="%s" data-k="%s"><div class="item-text"><h3>%s</h3>'
+        cards.setdefault(e["key"], []).append(
+            '<article class="item" id="%s" data-d="%s"><div class="item-text"><h3>%s</h3>'
             '<p>%s <a class="more" href="changelog.html#%s">More</a></p>'
             '<span class="meta">%s<span class="date">%s</span></span></div>%s</article>'
-            % (e["slug"], e["key"], inline(plain_title(e)), inline(short(e)), e["slug"],
-               kind_chip(e), html.escape(ver), shots))
+            % (e["slug"], " ".join(e["domains"]), inline(plain_title(e)), inline(short(e)),
+               e["slug"], domain_chips(e), html.escape(ver), shots))
+    groups = ['<section class="group k-%s"><h2>%s</h2>%s</section>'
+              % (k, label, "\n".join(cards[k])) for k, label in KINDS if cards.get(k)]
     body = """<main class="wrap doc with-toc">
 <aside class="toc side">%s</aside>
 <div>
 <h1>What's new</h1>
-<p class="lead">What plays differently from the original Deadlock 2, newest first. The
-<a href="changelog.html">full changelog</a> has the details.</p>
+<p class="lead">What plays differently from the original Deadlock 2, by where in the game,
+newest first. The <a href="changelog.html">full changelog</a> has the details, and the
+port's own bugs fixed.</p>
 <div class="items">%s</div>
 </div>
 </main>
 <script>
-// the sidebar's filters: All, or one kind alone; the address keeps it (#qol), and an
+// the sidebar's filters: All, or one domain alone, each under Features, QoL and Bug fixes
+// (a kind with none of the domain's hidden); the address keeps it (#battle), and an
 // address naming a change (#its-slug) shows all
 const filts = document.querySelectorAll('.filt'), items = document.querySelectorAll('.item');
 function show(k) {
   if (![...filts].some(f => f.dataset.k === k)) k = 'all';
   filts.forEach(f => f.classList.toggle('on', f.dataset.k === k));
-  items.forEach(i => i.hidden = k !== 'all' && i.dataset.k !== k);
+  items.forEach(i => i.hidden = k !== 'all' && !i.dataset.d.split(' ').includes(k));
+  document.querySelectorAll('.group').forEach(g => g.hidden = !g.querySelector('.item:not([hidden])'));
 }
 filts.forEach(f => f.addEventListener('click', e => {
   e.preventDefault();
@@ -533,7 +563,7 @@ filts.forEach(f => f.addEventListener('click', e => {
   window.scrollTo(0, 0);
 }));
 show(location.hash.slice(1));
-</script>""" % ("".join(side), "\n".join(cards))
+</script>""" % ("".join(side), "\n".join(groups))
     return page("What's new - OpenDeadlock", "new", body, version)
 
 
@@ -546,9 +576,9 @@ def changelog(intro, days, version, used):
         for e in entries:
             used.update(src for _, src in images(e))
             chip = '<span class="chip k-%s">%s</span>' % (e["key"], html.escape(e["kind"] or "change"))
-            sec.append('<article id="%s" class="entry"><div class="card-head">%s'
+            sec.append('<article id="%s" class="entry"><div class="card-head">%s%s'
                        '<h3><a href="#%s">%s</a></h3></div>%s</article>'
-                       % (e["slug"], chip, e["slug"], entry_title(e),
+                       % (e["slug"], chip, domain_chips(e), e["slug"], entry_title(e),
                           render(blocks(e["lines"]), before_after(images(e)))))
         if lead:  # what the first steps changed, before the log began: the oldest, so last
             sec.append('<article id="before" class="entry"><div class="card-head">'
