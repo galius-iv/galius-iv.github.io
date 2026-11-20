@@ -463,6 +463,12 @@ def page(title, active, body, version, extra_head=""):
 <link rel="icon" href="img/opendeadlock.png">
 <link rel="apple-touch-icon" href="img/opendeadlock.png">
 <link rel="stylesheet" href="style.css">%(extra)s
+<script async src="https://www.googletagmanager.com/gtm.js?id=GTM-NRDTCGKT"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+</script>
 </head><body>
 <header class="top"><div class="wrap">
   <a class="brand" href="index.html"><img src="img/opendeadlock.png" alt="">OpenDeadlock</a>
