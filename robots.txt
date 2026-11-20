@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://galius-iv.github.io/sitemap.xml
