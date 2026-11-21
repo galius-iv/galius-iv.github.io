@@ -441,7 +441,8 @@ def page(title, active, body, version, extra_head=""):
                   for key, href, label in [("downloads", "downloads.html", "Downloads"),
                                            ("new", "whatsnew.html", "What's new"),
                                            ("log", "changelog.html", "Changelog"),
-                                           ("games", "games.html", "Games"),
+                                           ("games", "games.html",
+                                            'Online [<b class="n" id="nav-online">&ndash;</b>]'),
                                            ("faq", "faq.html", "FAQ")])
     return """<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -489,6 +490,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   document.addEventListener('click', (e) => { if (!top.contains(e.target)) set(false); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') set(false); });
 })();
+// the top bar's Online count: the games on the public relay right now (waiting + under way),
+// from its /games every 30 s; a dash when the relay is not reached
+(() => {
+  const n = document.getElementById('nav-online');
+  const load = () => fetch(%(relay)s, { cache: 'no-store' }).then(r => r.json()).then(g => {
+    n.textContent = (g.now.lobbies ?? 0) + (g.now.playing ?? 0);
+  }).catch(() => { n.textContent = '\u2013'; });
+  load();
+  setInterval(() => { if (!document.hidden) load(); }, 30000);
+})();
 </script>
 %(body)s
 <footer><div class="wrap">
@@ -503,7 +514,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </body></html>
 """ % {"title": html.escape(title), "desc": html.escape(PAGES[active][1]),
        "url": SITE_URL + ("" if active == "home" else PAGES[active][0]), "site": SITE_URL,
-       "nav": nav, "body": body, "version": version, "repo": REPO_URL, "discord": DISCORD_URL,
+       "nav": nav, "relay": json.dumps(RELAY_GAMES), "body": body, "version": version, "repo": REPO_URL, "discord": DISCORD_URL,
        "repo_short": REPO_URL.split("//")[1], "extra": extra_head}
 
 
