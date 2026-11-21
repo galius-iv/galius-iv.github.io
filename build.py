@@ -463,13 +463,16 @@ def page(title, active, body, version, extra_head=""):
 <link rel="icon" href="img/opendeadlock.png">
 <link rel="apple-touch-icon" href="img/opendeadlock.png">
 <link rel="stylesheet" href="style.css">%(extra)s
-<script async src="https://www.googletagmanager.com/gtm.js?id=GTM-NRDTCGKT"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-</script>
+<!-- Google Tag Manager: the {'gtm.start', event: 'gtm.js'} push is what fires the container's
+     triggers (Initialization / Page View); loading gtm.js without it sends GA nothing -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-NRDTCGKT');</script>
 </head><body>
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NRDTCGKT"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <header class="top"><div class="wrap">
   <a class="brand" href="index.html"><img src="img/opendeadlock.png" alt="">OpenDeadlock</a>
   <button class="menu" aria-label="Menu" aria-expanded="false" aria-controls="nav"><i></i><i></i><i></i></button>
