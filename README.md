@@ -15,7 +15,7 @@ download button names (default: the checkout's last tag). Plain Python 3, nothin
 install.
 
 - `src/index.html`: the landing page's body, a template (`{{VERSION}}`, `{{RELEASE}}`,
-  `{{REPO}}`, `{{BUGS}}`, `{{QOL}}`)
+  `{{REPO}}`, `{{DISCORD}}`, `{{BUGS}}`, `{{QOL}}`)
 - `src/style.css`: the colours, type and panels of the modern UI's design system
   (galius-iv/modern-ui, `ui.css`)
 - `build.py`: the pages, from the checkout's `CHANGELOG.md`; the screenshots it shows
@@ -25,3 +25,6 @@ What's new groups the changes by domain, the `[battle]` after each CHANGELOG.md 
 kind (`DOMAINS` in build.py; the changelog's header lists them), each under Features, QoL
 and Bug fixes. It leaves out the port's own bugs fixed and the changes nobody notices in play
 (unreachable code, a hostile network peer ...); the full changelog has every entry.
+
+The page links to [OpenDeadlock's Discord](https://discord.gg/XdEABUBC6Z) (`DISCORD_URL` in build.py): the
+landing page's button, the footer and the FAQ.
