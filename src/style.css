@@ -442,3 +442,14 @@ a.online .go { margin-left: auto; color: var(--cyan); text-transform: uppercase;
 .hero .other { margin: -.6rem 0 1.1rem; font-size: .9rem; }
 .hero .other a { color: var(--text-dim); }
 .hero .other a:hover { color: var(--cyan); }
+
+/* the short changelog: each release as its Discord post, one line a change */
+.rel h2 { margin: 2.25rem 0 .2rem; font-size: 1.3rem; }
+.rel h2 .date { font: 400 .9rem var(--mono); color: var(--text-faint); letter-spacing: 0;
+  text-transform: none; text-shadow: none; margin-left: .5rem; }
+.rel-meta { margin: 0 0 .5rem; color: var(--text-faint); font-size: .9rem; }
+.rel ul { margin: 0; padding-left: 1.2rem; }
+.rel li { margin: .2rem 0; }
+.rel li a { color: var(--text); }
+.rel li .dom { color: var(--text-faint); font-style: italic; font-size: .88rem; }
+.rel-more { margin: .4rem 0 0; font-size: .9rem; }

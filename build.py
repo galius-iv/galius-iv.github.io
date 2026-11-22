@@ -10,9 +10,13 @@ screenshots, icon and tags) and writes DIR (default `dist/`, gitignored) from
 - index.html     the landing page; the download button names the last tag (`git describe`)
 - whatsnew.html  every change a player notices, two or three sentences each, from the
                  entry's "After:" part, with its before/after screenshots
-- changelog.html CHANGELOG.md in full, grouped by release (the first tag whose
+- changelog.html short, as the Discord announcement (tools/announce.py): each release,
+                 its date and its changes one line each (the entries' titles), each
+                 linking to its details; a long release shows its first SHORT_MAX
+- changelog-details.html  CHANGELOG.md in full, grouped by release (the first tag whose
                  CHANGELOG.md names the entry) rather than by day; What's new tags each
-                 change with its release too
+                 change with its release too. Not in the top bar or the sitemap: reached
+                 from the short changelog's and What's new's links
 - games.html     the public relay's games, live (fetched by the page from RELAY_GAMES)
 - downloads.html every platform's zip and the APK of the last release, from this
                  repository's release of it (DL_URL; sizes and date from gh)
@@ -53,8 +57,11 @@ PAGES = {
                   "You need your own copy of Deadlock 2."),
     "new": ("whatsnew.html", "Every change a player notices in OpenDeadlock against the original "
             "Deadlock 2: bug fixes, new features and quality of life, with screenshots."),
-    "log": ("changelog.html", "OpenDeadlock's full changelog, by release: every change against "
-            "the original Deadlock 2 and how it was checked."),
+    "log": ("changelog.html", "OpenDeadlock's changelog, by release: what each release "
+            "changed against the original Deadlock 2, one line a change."),
+    # not in the top bar nor the sitemap (HIDDEN_PAGES): the short changelog links to it
+    "details": ("changelog-details.html", "OpenDeadlock's full changelog, by release: every "
+                "change against the original Deadlock 2 and how it was checked."),
     "games": ("games.html", "OpenDeadlock's network games on the public relay, live: games "
               "waiting for players, games under way, and how to join."),
     "faq": ("faq.html", "Questions about OpenDeadlock: what you need, installing, network play, "
@@ -62,6 +69,10 @@ PAGES = {
 }
 # The public relay (galius-iv/relay): its /games, JSON open to any page (CORS *), counts the
 # games and names those their hosts listed (net_public=1); games.html fetches it.
+HIDDEN_PAGES = {"details"}
+# the short changelog: the changes a release shows before "... and N more" (as the
+# Discord post cuts a long list)
+SHORT_MAX = 12
 RELAY_GAMES = "https://opendeadlock-relay.fly.dev/games"
 # the relay's uptime, watched by UptimeRobot (its page refuses to be framed: a link)
 RELAY_STATUS = "https://stats.uptimerobot.com/OMP1tX2SSi"
@@ -436,7 +447,9 @@ def _images(entry):
 
 # ---------------------------------------------------------------- pages
 
-def page(title, active, body, version, extra_head=""):
+def page(title, active, body, version, extra_head="", key=None):
+    """A page; active is the top bar's link lit, key (default active) the PAGES entry."""
+    key = key or active
     nav = "".join('<a href="%s"%s>%s</a>' % (href, ' class="on"' if key == active else "", label)
                   for key, href, label in [("downloads", "downloads.html", "Downloads"),
                                            ("new", "whatsnew.html", "What's new"),
@@ -512,8 +525,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="lightbox.js"></script>
 <script src="compare.js"></script>
 </body></html>
-""" % {"title": html.escape(title), "desc": html.escape(PAGES[active][1]),
-       "url": SITE_URL + ("" if active == "home" else PAGES[active][0]), "site": SITE_URL,
+""" % {"title": html.escape(title), "desc": html.escape(PAGES[key][1]),
+       "url": SITE_URL + ("" if key == "home" else PAGES[key][0]), "site": SITE_URL,
        "nav": nav, "relay": json.dumps(RELAY_GAMES), "body": body, "version": version, "repo": REPO_URL, "discord": DISCORD_URL,
        "repo_short": REPO_URL.split("//")[1], "extra": extra_head}
 
@@ -554,7 +567,7 @@ def whatsnew(days, version, used):
                 % (img_path(src), img_path(src), html.escape(alt)) for alt, src in pics)
         cards.setdefault(e["key"], []).append(
             '<article class="item" id="%s" data-d="%s"><div class="item-text"><h3>%s</h3>'
-            '<p>%s <a class="more" href="changelog.html#%s">More</a></p>'
+            '<p>%s <a class="more" href="changelog-details.html#%s">More</a></p>'
             '<span class="meta">%s<span class="date">%s</span></span></div>%s</article>'
             % (e["slug"], " ".join(e["domains"]), inline(plain_title(e)), inline(short(e)),
                e["slug"], domain_chips(e), html.escape(ver), shots))
@@ -565,7 +578,7 @@ def whatsnew(days, version, used):
 <div>
 <h1>What's new</h1>
 <p class="lead">What plays differently from the original Deadlock 2, by where in the game,
-newest first. The <a href="changelog.html">full changelog</a> has the details, and the
+newest first. The <a href="changelog-details.html">full changelog</a> has the details, and the
 port's own bugs fixed.</p>
 <div class="items">%s</div>
 </div>
@@ -592,12 +605,64 @@ show(location.hash.slice(1));
     return page("What's new - OpenDeadlock", "new", body, version)
 
 
-def changelog(intro, days, version, used):
+def anchor(ver):
+    return re.sub(r"[^a-z0-9]+", "-", ver.lower()).strip("-")
+
+
+def tag_date(tag):
+    """The release's day (its tag's commit), or None: Unreleased, or git cannot say."""
+    try:
+        return subprocess.check_output(["git", "log", "-1", "--format=%as", tag], cwd=ROOT,
+                                       text=True, stderr=subprocess.DEVNULL).strip() or None
+    except (subprocess.CalledProcessError, OSError):
+        return None
+
+
+def changelog(days, version):
+    """The changelog in short, as the release's Discord post: each release, its date and
+    its changes one line each (the title and where in the game), each line linking to its
+    details on changelog-details.html; the port's own bugs fixed only counted. A long
+    release shows its first SHORT_MAX and links to the rest."""
+    toc, parts = [], []
+    for ver, _, entries in days:
+        shown = [e for e in entries if e["key"] != "port"]
+        port = len(entries) - len(shown)
+        toc.append('<a href="#%s">%s</a>' % (anchor(ver), html.escape(ver)))
+        date = tag_date(ver) if ver != "Unreleased" else None
+        head = "%d change%s" % (len(shown), "s" * (len(shown) != 1))
+        if port:
+            head += " &middot; %d port fix%s" % (port, "es" * (port != 1))
+        lines = ['<li><a href="changelog-details.html#%s">%s</a> <span class="dom">(%s)</span></li>'
+                 % (e["slug"], inline(plain_title(e)),
+                    ", ".join(dict(DOMAINS)[d] for d in e["domains"]))
+                 for e in shown[:SHORT_MAX]]
+        more = len(shown) - SHORT_MAX
+        rest = ('<a href="changelog-details.html#%s">... and %d more</a>' % (anchor(ver), more)
+                if more > 0 else '<a href="changelog-details.html#%s">Details</a>' % anchor(ver))
+        parts.append('<section class="rel" id="%s"><h2>%s%s</h2><p class="rel-meta">%s</p>'
+                     '%s<p class="rel-more">%s</p></section>'
+                     % (anchor(ver), html.escape(ver),
+                        ' <span class="date">%s</span>' % date if date else "", head,
+                        "<ul>%s</ul>" % "".join(lines) if lines else "", rest))
+    body = """<main class="wrap doc with-toc">
+<aside class="toc"><div class="section-title">Versions</div>%s</aside>
+<div>
+<h1>Changelog</h1>
+<p class="lead">What each release changed against the original Deadlock 2, one line a
+change. Each line links to its details in the <a href="changelog-details.html">full
+changelog</a>: why, how it was checked, before/after screenshots and the port's own fixes.
+<a href="whatsnew.html">What's new</a> has every change by where in the game.</p>
+%s
+</div>
+</main>""" % ("".join(toc), "\n".join(parts))
+    return page("Changelog - OpenDeadlock", "log", body, version)
+
+
+def changelog_details(intro, days, version, used):
     toc, parts = [], []
     for ver, lead, entries in days:
-        anchor = re.sub(r"[^a-z0-9]+", "-", ver.lower()).strip("-")
-        toc.append('<a href="#%s">%s</a>' % (anchor, html.escape(ver)))
-        sec = ['<h2 id="%s">%s</h2>' % (anchor, html.escape(ver))]
+        toc.append('<a href="#%s">%s</a>' % (anchor(ver), html.escape(ver)))
+        sec = ['<h2 id="%s">%s</h2>' % (anchor(ver), html.escape(ver))]
         for e in entries:
             used.update(src for _, src in images(e))
             chip = '<span class="chip k-%s">%s</span>' % (e["key"], html.escape(e["kind"] or "change"))
@@ -614,12 +679,14 @@ def changelog(intro, days, version, used):
     body = """<main class="wrap doc with-toc">
 <aside class="toc"><div class="section-title">Versions</div>%s</aside>
 <div>
-<h1>Changelog</h1>
+<h1>Full changelog</h1>
+<p class="lead">Every change in detail. The <a href="changelog.html">changelog</a> has each
+release in short.</p>
 <div class="intro">%s</div>
 %s
 </div>
 </main>""" % ("".join(toc), render(blocks(intro_body.split("\n"))), "\n".join(parts))
-    return page("Changelog - OpenDeadlock", "log", body, version)
+    return page("Full changelog - OpenDeadlock", "log", body, version, key="details")
 
 
 # The release's zips: (platform, its zip's tail, what it runs on). From the release notes
@@ -812,7 +879,8 @@ def main():
     os.makedirs(os.path.join(args.out, "img"), exist_ok=True)
     used = set()
     pages = {"whatsnew.html": whatsnew(days, version, used),
-             "changelog.html": changelog(intro, days, version, used),
+             "changelog.html": changelog(days, version),
+             "changelog-details.html": changelog_details(intro, days, version, used),
              "games.html": games(version),
              "downloads.html": downloads(version)}
 
@@ -854,7 +922,8 @@ def main():
         f.write('<?xml version="1.0" encoding="UTF-8"?>\n'
                 '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n%s</urlset>\n'
                 % "".join("  <url><loc>%s%s</loc></url>\n"
-                          % (SITE_URL, "" if k == "home" else name) for k, (name, _) in PAGES.items()))
+                          % (SITE_URL, "" if k == "home" else name) for k, (name, _) in PAGES.items()
+                          if k not in HIDDEN_PAGES))
     with open(os.path.join(args.out, "robots.txt"), "w", encoding="utf-8") as f:
         f.write("User-agent: *\nAllow: /\nSitemap: %ssitemap.xml\n" % SITE_URL)
     shown = sum(1 for e in entries if noticeable(e))
