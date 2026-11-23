@@ -21,7 +21,10 @@ install.
 - `src/style.css`: the colours, type and panels of the modern UI's design system
   (galius-iv/modern-ui, `ui.css`)
 - `build.py`: the pages, from the checkout's `CHANGELOG.md`; the screenshots it shows
-  (`docs/readme/`, `docs/changelog/`) and the icon are copied into `dist/img/`
+  (`docs/readme/`, `docs/changelog/`) and the icon are copied into `dist/img/`; the update
+  manifest the game checks once a day, `update/latest.json` and `latest.json.sig`, is the
+  release's `update.json` and `update.json.sig` (made by OpenDeadlock's `tools/release.py`,
+  GALI-38), fetched with `gh`; without them the ones served now are kept
 
 What's new groups the changes by domain, the `[battle]` after each CHANGELOG.md entry's
 kind (`DOMAINS` in build.py; the changelog's header lists them), each under Features, QoL

@@ -21,6 +21,11 @@ screenshots, icon and tags) and writes DIR (default `dist/`, gitignored) from
 - downloads.html every platform's zip and the APK of the last release, from this
                  repository's release of it (DL_URL; sizes and date from gh)
 - faq.html       the FAQ, from src/faq.html (a template, as the landing page)
+- update/latest.json, latest.json.sig
+                 the update manifest the game checks once a day, and its signature
+                 (OpenDeadlock's GALI-38): the release's update.json and update.json.sig,
+                 which tools/release.py made and put in this repository's release (gh);
+                 without them, the ones the site serves now are kept
 
 with the screenshots it shows (docs/readme/, docs/changelog/) and the icon copied beside
 them, so the folder can be served as it is (`python3 -m http.server -d dist`).
@@ -927,6 +932,8 @@ def main():
                           if k not in HIDDEN_PAGES))
     with open(os.path.join(args.out, "robots.txt"), "w", encoding="utf-8") as f:
         f.write("User-agent: *\nAllow: /\nSitemap: %ssitemap.xml\n" % SITE_URL)
+    if not update_manifest(args.out, version) and args.publish:
+        print("build.py: no update manifest: the game's update check will find none", file=sys.stderr)
     shown = sum(1 for e in entries if noticeable(e))
     print("build.py: %s (v%s): %d changes, %d in What's new, %d pictures"
           % (args.out, version, len(entries), shown, len(used)))
@@ -971,6 +978,46 @@ def og_image(img):
     draw.text((174, 530), "Deadlock 2, rebuilt for today's machines", font=font(32, 5),
               fill=(70, 224, 255))
     pic.save(os.path.join(img, "og.jpg"), quality=85, optimize=True, progressive=True)
+
+
+def update_manifest(out, version):
+    """update/latest.json and latest.json.sig in out: the release's update.json and its
+    signature (gh, from DL_URL's release), else the ones served now (a release made before
+    the manifest, or gh unable to say), so a publish never takes the manifest away. Checked
+    only for being JSON naming a version: the game checks the signature."""
+    dest = os.path.join(out, "update")
+    os.makedirs(dest, exist_ok=True)
+    files = {}
+    for name in ("update.json", "update.json.sig"):
+        try:
+            files[name] = subprocess.check_output(
+                ["gh", "release", "download", "v" + version, "-R", DL_URL.split("github.com/")[1],
+                 "--pattern", name, "--output", "-"], stderr=subprocess.DEVNULL)
+        except (subprocess.CalledProcessError, OSError):
+            pass
+    source = "the release v%s" % version
+    if len(files) < 2:
+        import urllib.request
+        files = {}
+        try:
+            for name, served in (("update.json", "latest.json"), ("update.json.sig", "latest.json.sig")):
+                req = urllib.request.Request(SITE_URL + "update/" + served, headers={"User-Agent": "build.py"})
+                files[name] = urllib.request.urlopen(req, timeout=30).read()
+            source = "the site as served now"
+        except OSError:
+            return False
+    try:
+        if not json.loads(files["update.json"]).get("version") or len(files["update.json.sig"]) != 64:
+            raise ValueError
+    except ValueError:
+        print("build.py: the update manifest from %s is not one: left out" % source, file=sys.stderr)
+        return False
+    with open(os.path.join(dest, "latest.json"), "wb") as f:
+        f.write(files["update.json"])
+    with open(os.path.join(dest, "latest.json.sig"), "wb") as f:
+        f.write(files["update.json.sig"])
+    print("build.py: update/latest.json %s, from %s" % (json.loads(files["update.json"])["version"], source))
+    return True
 
 
 def publish(out, version):
