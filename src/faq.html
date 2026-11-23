@@ -40,14 +40,15 @@
 </details>
 
 <details>
-  <summary>On Linux nothing asks for the game</summary>
-  <p>There is no folder dialog on Linux. The simplest way: put the files of OpenDeadlock's
-  folder (<code>opendeadlock</code> and <code>libSDL3.so.0</code>) in the Deadlock 2 folder
-  itself; it finds the game there and plays in place, nothing copied. Or put GOG's installer
-  (<code>setup_deadlock_ii_shrine_wars_*.exe</code>) in OpenDeadlock's folder: the first start
-  unpacks the game from it. Or keep OpenDeadlock's
-  own folder and put <code>gamedir=/path/to/Deadlock 2</code> (or the path of GOG's installer)
-  in <code>opendeadlock.ini</code> beside the program first.
+  <summary>How does it find the game on Linux?</summary>
+  <p>Since 0.2.2 the first start asks, as on Windows and macOS: Choose folder and Choose
+  installer open your desktop's own dialogs (through xdg-desktop-portal) or zenity's. Without
+  either, its window says how to do it by hand: put GOG's installer
+  (<code>setup_deadlock_ii_shrine_wars_*.exe</code>) in OpenDeadlock's folder, put
+  <code>gamedir=/path/to/Deadlock 2</code> (or the path of GOG's installer) in
+  <code>opendeadlock.ini</code> beside the program, or put the files of OpenDeadlock's folder
+  (<code>opendeadlock</code> and <code>libSDL3.so.0</code>) in the Deadlock 2 folder itself,
+  where it plays in place, nothing copied.
   Any distribution with glibc 2.28 or later works, on x86_64 or arm64.</p>
 </details>
 
@@ -55,9 +56,10 @@
   <summary>Is there an Android version?</summary>
   <p>Yes, made for tablets and played by touch, but so far it has only been tried on the
   emulator. Install the APK from the <a href="downloads.html">downloads</a> (Android 7 or
-  later), start it once so it makes its folder, and copy the Deadlock 2 folder's files (not
-  its subfolders) into <code>Android/data/org.opendeadlock/files</code> on the device; saves
-  go there too, and uninstalling the app deletes them.</p>
+  later) and start it: the first start asks for Deadlock 2 in Android's own pickers. Choose
+  the Deadlock 2 folder you copied to the device, or GOG's installer (from Download, say),
+  and the game is copied into the app's own folder, with its saves. Uninstalling the app
+  deletes that folder, saves included.</p>
 </details>
 
 <div class="section-title">Playing</div>

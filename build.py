@@ -696,12 +696,12 @@ PLATFORMS = [
     ("Windows", "windows-x86", "32-bit build: 32-bit or 64-bit Windows"),
     ("macOS", "macos-arm64", "macOS 26 or later, Apple silicon. Not notarized: once, in its folder, "
                              "<code>xattr -dr com.apple.quarantine .</code>"),
-    ("Linux", "linux-x86_64", "x86_64, glibc 2.28 or later (2018 on); SDL3 is in the zip. No folder "
-                              "dialog: its files in the Deadlock 2 folder, GOG's installer in its folder, or "
-                              "<code>gamedir=</code> in <code>opendeadlock.ini</code>"),
-    ("Linux", "linux-arm64", "arm64, glibc 2.28 or later; SDL3 is in the zip. No folder "
-                             "dialog: its files in the Deadlock 2 folder, GOG's installer in its folder, or "
-                             "<code>gamedir=</code> in <code>opendeadlock.ini</code>"),
+    ("Linux", "linux-x86_64", "x86_64, glibc 2.28 or later (2018 on); SDL3 is in the zip. The first "
+                              "start opens your desktop's folder and file dialogs (xdg-desktop-portal or "
+                              "zenity); without them, <code>gamedir=</code> in <code>opendeadlock.ini</code>"),
+    ("Linux", "linux-arm64", "arm64, glibc 2.28 or later; SDL3 is in the zip. The first start opens "
+                             "your desktop's folder and file dialogs (xdg-desktop-portal or zenity); "
+                             "without them, <code>gamedir=</code> in <code>opendeadlock.ini</code>"),
 ]
 
 
@@ -736,8 +736,9 @@ def downloads(version):
     size = sizes.get(apk)
     rows.append('<div class="dl-row"><div class="dl-what"><h3>Android <span>tablets</span></h3>'
                 '<p>Android 7 or later, tablets in landscape (arm64, x86_64). Tried on the '
-                'emulator so far. Install the APK, start it once, then copy the Deadlock 2 '
-                'folder\'s files into <code>Android/data/org.opendeadlock/files</code>.</p></div>'
+                'emulator so far. Install the APK and start it: the first start asks for your '
+                'Deadlock 2 folder or GOG\'s installer in Android\'s own pickers and copies the '
+                'game into the app.</p></div>'
                 '<a class="btn primary" href="%s%s">Download%s</a></div>'
                 % (base, apk, " <small>%.1f MB</small>" % (size / 1e6) if size else ""))
     sums = ('<a href="%sSHA256SUMS">SHA256SUMS</a>' % base) if (not sizes or "SHA256SUMS" in sizes) else ""
