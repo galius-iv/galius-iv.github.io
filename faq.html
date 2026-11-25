@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FAQ - OpenDeadlock</title>
+<meta name="description" content="Questions about OpenDeadlock: what you need, installing, network play, saves and reporting a bug.">
+<link rel="canonical" href="https://galius-iv.github.io/faq.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OpenDeadlock">
+<meta property="og:title" content="FAQ - OpenDeadlock">
+<meta property="og:description" content="Questions about OpenDeadlock: what you need, installing, network play, saves and reporting a bug.">
+<meta property="og:url" content="https://galius-iv.github.io/faq.html">
+<meta property="og:image" content="https://galius-iv.github.io/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="OpenDeadlock: Deadlock 2's world map in the modern interface">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#07090d">
+<link rel="icon" href="img/opendeadlock.png">
+<link rel="apple-touch-icon" href="img/opendeadlock.png">
+<link rel="stylesheet" href="style.css">
+<!-- Google Tag Manager: the {'gtm.start', event: 'gtm.js'} push is what fires the container's
+     triggers (Initialization / Page View); loading gtm.js without it sends GA nothing -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-NRDTCGKT');</script>
+</head><body>
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NRDTCGKT"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<header class="top"><div class="wrap">
+  <a class="brand" href="index.html"><img src="img/opendeadlock.png" alt="">OpenDeadlock</a>
+  <button class="menu" aria-label="Menu" aria-expanded="false" aria-controls="nav"><i></i><i></i><i></i></button>
+  <nav id="nav"><a href="downloads.html">Downloads</a><a href="whatsnew.html">What's new</a><a href="changelog.html">Changelog</a><a href="games.html">Online [<b class="n" id="nav-online">&ndash;</b>]</a><a href="faq.html" class="on">FAQ</a><a class="ext" href="https://discord.gg/XdEABUBC6Z">Discord<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3H3v10h10v-3M9 2h5v5M14 2 7 9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></a><a class="ext" href="https://github.com/galius-iv/opendeadlock">GitHub<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3H3v10h10v-3M9 2h5v5M14 2 7 9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></a></nav>
+</div></header>
+<script>
+// the phone's menu: the button opens the top bar's links below it; a link, Esc or a click
+// outside closes them
+(() => {
+  const top = document.querySelector('.top'), btn = top.querySelector('.menu');
+  const set = (open) => { top.classList.toggle('open', open); btn.setAttribute('aria-expanded', open); };
+  btn.addEventListener('click', () => set(!top.classList.contains('open')));
+  top.querySelectorAll('nav a').forEach((a) => a.addEventListener('click', () => set(false)));
+  document.addEventListener('click', (e) => { if (!top.contains(e.target)) set(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') set(false); });
+})();
+// the top bar's Online count: the games on the public relay right now (waiting + under way),
+// from its /games every 30 s; a dash when the relay is not reached
+(() => {
+  const n = document.getElementById('nav-online');
+  const load = () => fetch("https://opendeadlock-relay.fly.dev/games", { cache: 'no-store' }).then(r => r.json()).then(g => {
+    n.textContent = (g.now.lobbies ?? 0) + (g.now.playing ?? 0);
+  }).catch(() => { n.textContent = '–'; });
+  load();
+  setInterval(() => { if (!document.hidden) load(); }, 30000);
+})();
+</script>
+<main class="wrap doc faq">
+<h1>FAQ</h1>
+<p class="lead">Short answers to what players ask first. More in the
+<a href="https://github.com/galius-iv/opendeadlock#readme">README</a>.</p>
+
+<div class="section-title">Getting the game running</div>
+
+<details>
+  <summary>What do I need to play?</summary>
+  <p>Your own copy of Deadlock 2, installed from the CD, Steam or GOG, or just GOG's
+  installer. OpenDeadlock brings the program; the game's pictures, sounds and maps come
+  from your copy. No game data is included in the download.</p>
+</details>
+
+<details>
+  <summary>Which version of Deadlock 2 works?</summary>
+  <p>Any installed Deadlock 2, or GOG's installer itself. The port is made and checked
+  against GOG's v1.20.</p>
+</details>
+
+<details>
+  <summary>How do I install it?</summary>
+  <p>Download the zip for your system from the <a href="downloads.html">downloads</a>
+   and unpack it anywhere: that folder is OpenDeadlock's own. Start
+  <code>opendeadlock</code>; the first start asks for your Deadlock 2 folder or GOG's
+  installer and copies the game's files into <code>data/</code> beside the program (about
+  470 MB). Your Deadlock 2 is not changed.</p>
+</details>
+
+<details>
+  <summary>macOS says the app is damaged or can't be opened</summary>
+  <p>The macOS build is not notarized yet. Once, in OpenDeadlock's folder, run
+  <code>xattr -dr com.apple.quarantine .</code> in Terminal, then start
+  <code>./opendeadlock</code>. It needs macOS 26 on Apple silicon.</p>
+</details>
+
+<details>
+  <summary>How does it find the game on Linux?</summary>
+  <p>Since 0.2.2 the first start asks, as on Windows and macOS: Choose folder and Choose
+  installer open your desktop's own dialogs (through xdg-desktop-portal) or zenity's. Without
+  either, its window says how to do it by hand: put GOG's installer
+  (<code>setup_deadlock_ii_shrine_wars_*.exe</code>) in OpenDeadlock's folder, put
+  <code>gamedir=/path/to/Deadlock 2</code> (or the path of GOG's installer) in
+  <code>opendeadlock.ini</code> beside the program, or put the files of OpenDeadlock's folder
+  (<code>opendeadlock</code> and <code>libSDL3.so.0</code>) in the Deadlock 2 folder itself,
+  where it plays in place, nothing copied.
+  Any distribution with glibc 2.28 or later works, on x86_64 or arm64.</p>
+</details>
+
+<details>
+  <summary>Is there an Android version?</summary>
+  <p>Yes, made for tablets and played by touch, but so far it has only been tried on the
+  emulator. Install the APK from the <a href="downloads.html">downloads</a> (Android 7 or
+  later) and start it: the first start asks for Deadlock 2 in Android's own pickers. Choose
+  the Deadlock 2 folder you copied to the device, or GOG's installer (from Download, say),
+  and the game is copied into the app's own folder, with its saves. Uninstalling the app
+  deletes that folder, saves included.</p>
+</details>
+
+<div class="section-title">Playing</div>
+
+<details>
+  <summary>Is it still the same game?</summary>
+  <p>Yes. The rules and balance are the original's; only its bugs are fixed. The
+  improvements change no rule, and most of them are settings you can turn off. The <a href="changelog-details.html">full changelog</a> lists every difference.</p>
+</details>
+
+<details>
+  <summary>Classic or modern interface?</summary>
+  <p>The first start asks which one you want. The classic one is the original's screens,
+  scaled; the modern one is drawn at your window's size, with panels over the live map.
+  You can switch in Settings at any time.</p>
+</details>
+
+<details>
+  <summary>Where are my saves?</summary>
+  <p>In <code>saves/</code> in OpenDeadlock's folder; campaigns' and network games' in
+  <code>saves/campaign/</code> and <code>saves/multiplayer/</code>. Custom scenarios and
+  maps go in <code>scenarios/</code>.</p>
+</details>
+
+<details>
+  <summary>Can I use my old saves from the original game?</summary>
+  <p>The port keeps the original's save format, and the first start copies your saves
+  over. Loading saves between the original and the port has not been fully tested yet, so
+  keep a copy of any save you care about.</p>
+</details>
+
+<details>
+  <summary>Where are the settings?</summary>
+  <p>In the game's Settings page, and in <code>opendeadlock.ini</code> beside the program.
+  The first start writes that file with every setting listed and explained in a comment.
+  The keys, the original's and the new ones, are in
+  <a href="https://github.com/galius-iv/opendeadlock/blob/main/KEYS.md">KEYS.md</a>.</p>
+</details>
+
+<div class="section-title">Multiplayer</div>
+
+<details>
+  <summary>How do I play online?</summary>
+  <p>Host a network game and you get a six-letter code; the others press F2 on Join a
+  Game and type it. No port to open: games go through the public relay. Since 0.2.1 a
+  hosted game is also listed publicly, in Join a Game and on the
+  <a href="games.html">Games</a> page; turn off "List publicly" beside Host a game to
+  keep it to those who have the code.</p>
+</details>
+
+<details>
+  <summary>Can I play with friends on other systems?</summary>
+  <p>Yes: Windows and Mac players have played in one game. All players need the same
+  version of OpenDeadlock. The port cannot play with the original game.</p>
+</details>
+
+<details>
+  <summary>How does hotseat work?</summary>
+  <p>Several players at one computer, taking turns. Start a multiplayer game and pick
+  Hotseat as the connection, then how many play here. Each player has their own turn,
+  event log and view, and a screen hides the last player's empire before the next sits
+  down.</p>
+</details>
+
+<div class="section-title">Problems</div>
+
+<details>
+  <summary>How do I report a bug?</summary>
+  <p>Right after the problem, start the game once with <code>--report</code>
+  (<code>./opendeadlock --report</code>, or <code>opendeadlock.exe --report</code> on
+  Windows). It writes a <code>report-&hellip;.zip</code> with the logs, your settings and your
+  newest save, and quits. Attach it to an <a href="https://github.com/galius-iv/opendeadlock/issues">issue</a> with what you
+  did, or post it on <a href="https://discord.gg/XdEABUBC6Z">Discord</a>.</p>
+</details>
+
+<details>
+  <summary>Is this official?</summary>
+  <p>No. OpenDeadlock is a fan project, not affiliated with or endorsed by the rights holder
+  of Deadlock 2. It contains no game data: you need your own copy of the game.</p>
+</details>
+</main>
+<footer><div class="wrap">
+  <p><strong>Unofficial.</strong> Not affiliated with or endorsed by the rights holder of
+  Deadlock 2. No game data is included: you need your own copy of Deadlock 2 (<a
+  href="https://www.gog.com/game/deadlock_2_shrine_wars">GOG</a> or <a
+  href="https://store.steampowered.com/app/328450">Steam</a>).</p>
+  <p class="dim">OpenDeadlock v0.3.1 &middot; <a href="https://discord.gg/XdEABUBC6Z">Discord</a> &middot; <a href="https://github.com/galius-iv/opendeadlock">github.com/galius-iv/opendeadlock</a></p>
+</div></footer>
+<script src="lightbox.js"></script>
+<script src="compare.js"></script>
+</body></html>

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Downloads - OpenDeadlock</title>
+<meta name="description" content="Download OpenDeadlock for Windows, macOS, Linux or Android. You need your own copy of Deadlock 2.">
+<link rel="canonical" href="https://galius-iv.github.io/downloads.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OpenDeadlock">
+<meta property="og:title" content="Downloads - OpenDeadlock">
+<meta property="og:description" content="Download OpenDeadlock for Windows, macOS, Linux or Android. You need your own copy of Deadlock 2.">
+<meta property="og:url" content="https://galius-iv.github.io/downloads.html">
+<meta property="og:image" content="https://galius-iv.github.io/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="OpenDeadlock: Deadlock 2's world map in the modern interface">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#07090d">
+<link rel="icon" href="img/opendeadlock.png">
+<link rel="apple-touch-icon" href="img/opendeadlock.png">
+<link rel="stylesheet" href="style.css">
+<!-- Google Tag Manager: the {'gtm.start', event: 'gtm.js'} push is what fires the container's
+     triggers (Initialization / Page View); loading gtm.js without it sends GA nothing -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-NRDTCGKT');</script>
+</head><body>
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NRDTCGKT"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<header class="top"><div class="wrap">
+  <a class="brand" href="index.html"><img src="img/opendeadlock.png" alt="">OpenDeadlock</a>
+  <button class="menu" aria-label="Menu" aria-expanded="false" aria-controls="nav"><i></i><i></i><i></i></button>
+  <nav id="nav"><a href="downloads.html" class="on">Downloads</a><a href="whatsnew.html">What's new</a><a href="changelog.html">Changelog</a><a href="games.html">Online [<b class="n" id="nav-online">&ndash;</b>]</a><a href="faq.html">FAQ</a><a class="ext" href="https://discord.gg/XdEABUBC6Z">Discord<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3H3v10h10v-3M9 2h5v5M14 2 7 9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></a><a class="ext" href="https://github.com/galius-iv/opendeadlock">GitHub<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3H3v10h10v-3M9 2h5v5M14 2 7 9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></a></nav>
+</div></header>
+<script>
+// the phone's menu: the button opens the top bar's links below it; a link, Esc or a click
+// outside closes them
+(() => {
+  const top = document.querySelector('.top'), btn = top.querySelector('.menu');
+  const set = (open) => { top.classList.toggle('open', open); btn.setAttribute('aria-expanded', open); };
+  btn.addEventListener('click', () => set(!top.classList.contains('open')));
+  top.querySelectorAll('nav a').forEach((a) => a.addEventListener('click', () => set(false)));
+  document.addEventListener('click', (e) => { if (!top.contains(e.target)) set(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') set(false); });
+})();
+// the top bar's Online count: the games on the public relay right now (waiting + under way),
+// from its /games every 30 s; a dash when the relay is not reached
+(() => {
+  const n = document.getElementById('nav-online');
+  const load = () => fetch("https://opendeadlock-relay.fly.dev/games", { cache: 'no-store' }).then(r => r.json()).then(g => {
+    n.textContent = (g.now.lobbies ?? 0) + (g.now.playing ?? 0);
+  }).catch(() => { n.textContent = '–'; });
+  load();
+  setInterval(() => { if (!document.hidden) load(); }, 30000);
+})();
+</script>
+<main class="wrap doc downloads">
+<h1>Downloads</h1>
+<p class="lead">OpenDeadlock v0.3.1, released 2026-11-25. Unpack the zip anywhere and start
+<code>opendeadlock</code>; the first start asks for your Deadlock 2 folder or GOG's installer.</p>
+<div class="dl-list"><div class="dl-row"><div class="dl-what"><h3>Windows <span>x64</span></h3><p>64-bit Windows</p></div><a class="btn primary" href="https://github.com/galius-iv/galius-iv.github.io/releases/download/v0.3.1/opendeadlock-0.3.1-windows-x64.zip">Download <small>10.3 MB</small></a></div><div class="dl-row"><div class="dl-what"><h3>Windows <span>x86</span></h3><p>32-bit build: 32-bit or 64-bit Windows</p></div><a class="btn primary" href="https://github.com/galius-iv/galius-iv.github.io/releases/download/v0.3.1/opendeadlock-0.3.1-windows-x86.zip">Download <small>9.8 MB</small></a></div><div class="dl-row"><div class="dl-what"><h3>macOS <span>arm64</span></h3><p>macOS 26 or later, Apple silicon. Not notarized: once, in its folder, <code>xattr -dr com.apple.quarantine .</code></p></div><a class="btn primary" href="https://github.com/galius-iv/galius-iv.github.io/releases/download/v0.3.1/opendeadlock-0.3.1-macos-arm64.zip">Download <small>3.5 MB</small></a></div><div class="dl-row"><div class="dl-what"><h3>Linux <span>x86_64</span></h3><p>x86_64, glibc 2.28 or later (2018 on); SDL3 is in the zip. The first start opens your desktop's folder and file dialogs (xdg-desktop-portal or zenity); without them, <code>gamedir=</code> in <code>opendeadlock.ini</code></p></div><a class="btn primary" href="https://github.com/galius-iv/galius-iv.github.io/releases/download/v0.3.1/opendeadlock-0.3.1-linux-x86_64.zip">Download <small>9.0 MB</small></a></div><div class="dl-row"><div class="dl-what"><h3>Linux <span>arm64</span></h3><p>arm64, glibc 2.28 or later; SDL3 is in the zip. The first start opens your desktop's folder and file dialogs (xdg-desktop-portal or zenity); without them, <code>gamedir=</code> in <code>opendeadlock.ini</code></p></div><a class="btn primary" href="https://github.com/galius-iv/galius-iv.github.io/releases/download/v0.3.1/opendeadlock-0.3.1-linux-arm64.zip">Download <small>8.9 MB</small></a></div><div class="dl-row"><div class="dl-what"><h3>Android <span>tablets</span></h3><p>Android 7 or later, tablets in landscape (arm64, x86_64). Tried on the emulator so far. Install the APK and start it: the first start asks for your Deadlock 2 folder or GOG's installer in Android's own pickers and copies the game into the app.</p></div><a class="btn primary" href="https://github.com/galius-iv/galius-iv.github.io/releases/download/v0.3.1/opendeadlock-0.3.1-android.apk">Download <small>57.6 MB</small></a></div></div>
+<p class="dim small"><a href="https://github.com/galius-iv/galius-iv.github.io/releases/download/v0.3.1/SHA256SUMS">SHA256SUMS</a> &middot; <a href="https://github.com/galius-iv/galius-iv.github.io/releases/tag/v0.3.1">Release notes</a> &middot;
+<a href="https://github.com/galius-iv/galius-iv.github.io/releases">All releases</a> &middot; <a href="whatsnew.html">What's new</a> &middot;
+<a href="faq.html">FAQ</a></p>
+<p class="note">You need your own copy of Deadlock 2, installed from the CD, Steam or GOG, or GOG's
+installer: no game data is in the download. Network games need the same version on every
+machine.</p>
+</main>
+<footer><div class="wrap">
+  <p><strong>Unofficial.</strong> Not affiliated with or endorsed by the rights holder of
+  Deadlock 2. No game data is included: you need your own copy of Deadlock 2 (<a
+  href="https://www.gog.com/game/deadlock_2_shrine_wars">GOG</a> or <a
+  href="https://store.steampowered.com/app/328450">Steam</a>).</p>
+  <p class="dim">OpenDeadlock v0.3.1 &middot; <a href="https://discord.gg/XdEABUBC6Z">Discord</a> &middot; <a href="https://github.com/galius-iv/opendeadlock">github.com/galius-iv/opendeadlock</a></p>
+</div></footer>
+<script src="lightbox.js"></script>
+<script src="compare.js"></script>
+</body></html>
